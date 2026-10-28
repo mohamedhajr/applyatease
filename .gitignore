@@ -1,0 +1,22 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+
+# Dependencies and generated outputs
+node_modules/
+.pnpm-store/
+dist/
+build/
+coverage/
+.vite/
+*.tsbuildinfo
+
+# Private runtime data
+/.local/
+/private/
+*.log
+
+# Operating-system files
+.DS_Store
+Thumbs.db
