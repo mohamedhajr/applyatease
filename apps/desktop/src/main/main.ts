@@ -23,7 +23,7 @@ function createWindow() {
     minWidth: 760,
     minHeight: 600,
     title: "Apply at Ease",
-    backgroundColor: "#faf9f7",
+    backgroundColor: "#f6f7fa",
     show: false,
     webPreferences: {
       preload: join(import.meta.dirname, "../preload/preload.cjs"),

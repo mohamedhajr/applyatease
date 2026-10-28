@@ -8,7 +8,7 @@ A web and desktop job-search assistant designed to help you:
 - Review and approve each application before submission.
 - Track saved jobs, application materials, progress and next steps.
 
-Early development: the app currently provides navigation and connection settings. Sign-in, CV import, job discovery and application workflows are not available yet.
+Early development: web and desktop share an opportunity workspace with an agent conversation area, match details and application review panels. Sign-in, CV import, job discovery, agent chat and application workflows are not connected yet.
 
 ## Run locally
 

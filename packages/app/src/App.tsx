@@ -18,33 +18,45 @@ import {
 } from "@tanstack/react-router";
 import { Schema } from "effect";
 import {
-  ArrowRight,
-  Briefcase,
+  Archive,
+  Bookmark,
+  BriefcaseBusiness,
+  ChevronRight,
   FileText,
-  LayoutDashboard,
-  Search,
+  Flag,
+  Inbox,
   Settings,
   Sprout,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { OpportunityWorkspace } from "./workspace/OpportunityWorkspace.tsx";
 
 type Platform =
   | { readonly kind: "web" }
   | { readonly kind: "desktop"; readonly bridge: DesktopBridge };
 type AppContext = { platform: Platform; apiBaseUrl: string };
-
 const rootRoute = createRootRouteWithContext<AppContext>()({
   component: Shell,
 });
-const overviewRoute = createRoute({
+const opportunitiesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  component: Overview,
+  component: () => <OpportunityWorkspace view="all" />,
 });
 const jobsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/jobs",
-  component: Jobs,
+  component: () => <OpportunityWorkspace view="saved" />,
+});
+const reviewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/review",
+  component: () => <OpportunityWorkspace view="review" />,
+});
+const archiveRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/archive",
+  component: () => <OpportunityWorkspace view="archived" />,
 });
 const applicationsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -65,8 +77,10 @@ const settingsRoute = createRoute({
 function makeRouter(context: AppContext) {
   return createRouter({
     routeTree: rootRoute.addChildren([
-      overviewRoute,
+      opportunitiesRoute,
       jobsRoute,
+      reviewRoute,
+      archiveRoute,
       applicationsRoute,
       profileRoute,
       settingsRoute,
@@ -78,13 +92,11 @@ function makeRouter(context: AppContext) {
     context,
   });
 }
-
 declare module "@tanstack/react-router" {
   interface Register {
     router: ReturnType<typeof makeRouter>;
   }
 }
-
 export function App({
   platform,
   apiBaseUrl = "/api",
@@ -105,35 +117,47 @@ export function App({
     </QueryClientProvider>
   );
 }
-
 const navigation = [
-  { to: "/", label: "Overview", icon: LayoutDashboard },
-  { to: "/jobs", label: "Saved jobs", icon: Search },
-  { to: "/applications", label: "Applications", icon: Briefcase },
+  { to: "/", label: "All opportunities", icon: Inbox },
+  { to: "/jobs", label: "Saved jobs", icon: Bookmark },
+  { to: "/applications", label: "Applications", icon: BriefcaseBusiness },
   { to: "/profile", label: "Your profile", icon: FileText },
 ] as const;
-
+const views = [
+  { to: "/review", label: "Needs review", icon: Flag },
+  { to: "/archive", label: "Archived", icon: Archive },
+] as const;
 function Shell() {
+  const main = useRef<HTMLElement>(null);
   return (
     <div className="app-shell">
-      <a className="skip-link" href="#main">
+      <a
+        className="skip-link"
+        href="#main"
+        onClick={(event) => {
+          event.preventDefault();
+          main.current?.focus();
+        }}
+      >
         Skip to content
       </a>
-      <aside className="sidebar">
+      <aside className="sidebar" aria-label="Workspace navigation">
         <Link to="/" className="brand" aria-label="Apply at Ease home">
           <span className="brand-mark">
-            <Sprout aria-hidden="true" size={22} />
+            <Sprout size={20} aria-hidden="true" />
           </span>
-          <span>
-            apply<span className="brand-light">atease</span>
+          <span className="brand-name">
+            apply<span>atease</span>
           </span>
         </Link>
-        <p className="nav-caption">YOUR WORKSPACE</p>
         <nav aria-label="Main navigation">
+          <p className="nav-caption">Workspace</p>
           {navigation.map(({ to, label, icon: Icon }) => (
             <Link
               key={to}
               to={to}
+              title={label}
+              aria-label={label}
               className="nav-link"
               activeProps={{
                 className: "nav-link is-active",
@@ -141,116 +165,65 @@ function Shell() {
               }}
               activeOptions={{ exact: true }}
             >
-              <Icon size={18} aria-hidden="true" />
-              {label}
+              <Icon size={17} aria-hidden="true" />
+              <span>{label}</span>
+            </Link>
+          ))}
+        </nav>
+        <nav className="saved-views" aria-label="Opportunity views">
+          <p className="nav-caption">Views</p>
+          {views.map(({ to, label, icon: Icon }) => (
+            <Link
+              key={to}
+              to={to}
+              title={label}
+              aria-label={label}
+              className="nav-link"
+              activeProps={{
+                className: "nav-link is-active",
+                "aria-current": "page",
+              }}
+            >
+              <Icon size={16} aria-hidden="true" />
+              <span>{label}</span>
             </Link>
           ))}
         </nav>
         <div className="sidebar-bottom">
+          <div className="approval-note">
+            <span className="approval-symbol">
+              <Flag size={15} aria-hidden="true" />
+            </span>
+            <strong>You’re in control</strong>
+            <p>Every application is yours to review before it’s sent.</p>
+          </div>
           <Link
             to="/settings"
+            title="Settings"
+            aria-label="Settings"
             className="nav-link"
             activeProps={{
               className: "nav-link is-active",
               "aria-current": "page",
             }}
           >
-            <Settings size={18} aria-hidden="true" />
-            Settings
+            <Settings size={17} aria-hidden="true" />
+            <span>Settings</span>
           </Link>
-          <p>
-            A little more ease.
-            <br />A step closer to what’s next.
-          </p>
+          <div className="workspace-label">
+            <span className="workspace-avatar">A</span>
+            <span>
+              Personal workspace<small>Apply at Ease</small>
+            </span>
+          </div>
         </div>
       </aside>
-      <div className="workspace">
-        <header className="topbar">
-          <span>Your next chapter</span>
-          <span className="private-label">
-            <span aria-hidden="true" />
-            Your decisions. Your pace.
-          </span>
-        </header>
-        <main id="main" tabIndex={-1}>
-          <Outlet />
-        </main>
-        <footer>You review every application before it’s sent.</footer>
-      </div>
+      <main ref={main} id="main" tabIndex={-1} className="workspace-main">
+        <Outlet />
+      </main>
     </div>
   );
 }
-
-function Overview() {
-  return (
-    <div className="page overview">
-      <div className="page-heading">
-        <p className="eyebrow">MAKE ROOM FOR WHAT’S NEXT</p>
-        <h1>
-          Your next move,
-          <br />
-          <span>with a little more ease.</span>
-        </h1>
-        <p className="lead">
-          A place to bring your experience, opportunities and applications
-          together.
-        </p>
-      </div>
-      <section className="welcome-panel" aria-labelledby="welcome-title">
-        <div className="welcome-art" aria-hidden="true">
-          <Sprout size={62} strokeWidth={1.2} />
-        </div>
-        <div>
-          <p className="eyebrow">A FRESH START</p>
-          <h2 id="welcome-title">Your workspace starts here</h2>
-          <p>
-            Get familiar with your space. Your career information belongs in
-            your profile, and every application stays yours to review.
-          </p>
-          <Link to="/profile" className="text-link">
-            Explore your profile <ArrowRight size={16} aria-hidden="true" />
-          </Link>
-        </div>
-      </section>
-      <section className="journey" aria-labelledby="journey-title">
-        <div className="section-heading">
-          <h2 id="journey-title">A clearer path forward</h2>
-          <span>One step at a time</span>
-        </div>
-        <div className="journey-grid">
-          <Link to="/profile" className="journey-step">
-            <span className="step-number">01</span>
-            <FileText size={21} aria-hidden="true" />
-            <h3>Start with your story</h3>
-            <p>Your experience and preferences set the direction.</p>
-            <span className="text-link">
-              Your profile <ArrowRight size={15} aria-hidden="true" />
-            </span>
-          </Link>
-          <Link to="/jobs" className="journey-step">
-            <span className="step-number">02</span>
-            <Search size={21} aria-hidden="true" />
-            <h3>Find your next opportunity</h3>
-            <p>Keep the roles that matter to you in one place.</p>
-            <span className="text-link">
-              Saved jobs <ArrowRight size={15} aria-hidden="true" />
-            </span>
-          </Link>
-          <Link to="/applications" className="journey-step">
-            <span className="step-number">03</span>
-            <Briefcase size={21} aria-hidden="true" />
-            <h3>Apply with intention</h3>
-            <p>Review your materials and follow each application.</p>
-            <span className="text-link">
-              Applications <ArrowRight size={15} aria-hidden="true" />
-            </span>
-          </Link>
-        </div>
-      </section>
-    </div>
-  );
-}
-
 function EmptyPage({
   title,
   description,
@@ -263,39 +236,32 @@ function EmptyPage({
   detail: string;
 }) {
   return (
-    <div className="page">
-      <div className="page-heading compact">
-        <p className="eyebrow">YOUR WORKSPACE</p>
+    <section className="page-panel">
+      <header className="panel-header">
         <h1>{title}</h1>
+      </header>
+      <div className="page">
         <p className="lead">{description}</p>
+        <div className="empty-state">
+          <span className="empty-symbol">
+            <FileText size={24} aria-hidden="true" />
+          </span>
+          <h2>{message}</h2>
+          <p>{detail}</p>
+          <Link to="/" className="text-link">
+            Back to opportunities <ChevronRight size={15} aria-hidden="true" />
+          </Link>
+        </div>
       </div>
-      <section className="empty-state">
-        <Sprout size={36} strokeWidth={1.4} aria-hidden="true" />
-        <h2>{message}</h2>
-        <p>{detail}</p>
-        <Link to="/" className="text-link">
-          Back to overview <ArrowRight size={16} aria-hidden="true" />
-        </Link>
-      </section>
-    </div>
-  );
-}
-function Jobs() {
-  return (
-    <EmptyPage
-      title="Saved jobs"
-      description="Keep your next opportunities within reach."
-      message="A place for your shortlist"
-      detail="Job discovery and saving will be available here."
-    />
+    </section>
   );
 }
 function Applications() {
   return (
     <EmptyPage
       title="Applications"
-      description="A clear view of every step you take."
-      message="Your applications, together"
+      description="Your materials, reviews and progress, in one place."
+      message="Your applications start here"
       detail="Application preparation and tracking will be available here. Nothing has been submitted."
     />
   );
@@ -304,8 +270,8 @@ function Profile() {
   return (
     <EmptyPage
       title="Your profile"
-      description="Your experience is the starting point."
-      message="Make space for your story"
+      description="The experience and preferences behind every match."
+      message="Start with your experience"
       detail="CV import and career preferences will be available here."
     />
   );
@@ -330,49 +296,52 @@ function Preferences() {
         : Promise.resolve(null),
   });
   return (
-    <div className="page">
-      <div className="page-heading compact">
-        <p className="eyebrow">MAKE IT YOURS</p>
+    <section className="page-panel">
+      <header className="panel-header">
         <h1>Settings</h1>
-        <p className="lead">Your app and connection.</p>
-      </div>
-      <section className="settings-panel" aria-label="Application settings">
-        <div className="setting-row">
-          <div>
-            <h2>Application</h2>
-            <p>{platform.kind === "desktop" ? "Desktop app" : "Web app"}</p>
-          </div>
-          {runtime.data && (
-            <span className="setting-value">
-              Version {runtime.data.appVersion}
-            </span>
-          )}
+      </header>
+      <div className="page">
+        <div className="page-heading compact">
+          <p className="lead">Your app and connection.</p>
         </div>
-        <div className="setting-row">
-          <div>
-            <h2>Connection</h2>
-            <p role="status">
-              {connection.isPending
-                ? "Checking connection…"
-                : connection.data?.status === "ok"
-                  ? "Connected"
-                  : "Service unavailable. Please try again."}
+        <section className="settings-panel" aria-label="Application settings">
+          <div className="setting-row">
+            <div>
+              <h2>Application</h2>
+              <p>{platform.kind === "desktop" ? "Desktop app" : "Web app"}</p>
+            </div>
+            {runtime.data && (
+              <span className="setting-value">
+                Version {runtime.data.appVersion}
+              </span>
+            )}
+          </div>
+          <div className="setting-row">
+            <div>
+              <h2>Connection</h2>
+              <p role="status">
+                {connection.isPending
+                  ? "Checking connection…"
+                  : connection.data?.status === "ok"
+                    ? "Connected"
+                    : "Service unavailable. Please try again."}
+              </p>
+            </div>
+            <Button
+              className="button"
+              onClick={() => void connection.refetch()}
+              disabled={connection.isFetching}
+            >
+              Retry connection
+            </Button>
+          </div>
+          {runtime.isError && (
+            <p role="alert" className="runtime-error">
+              The desktop service is unavailable. Restart the app to try again.
             </p>
-          </div>
-          <Button
-            className="button"
-            onClick={() => void connection.refetch()}
-            disabled={connection.isFetching}
-          >
-            Retry connection
-          </Button>
-        </div>
-        {runtime.isError && (
-          <p role="alert" className="runtime-error">
-            The desktop service is unavailable. Restart the app to try again.
-          </p>
-        )}
-      </section>
-    </div>
+          )}
+        </section>
+      </div>
+    </section>
   );
 }

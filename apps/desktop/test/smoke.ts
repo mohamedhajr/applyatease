@@ -18,9 +18,25 @@ try {
   page.on("pageerror", (error) => errors.push(error.message));
   await expect(
     page.getByRole("heading", {
-      name: "Your next move, with a little more ease.",
+      name: /Every opportunity/,
     }),
   ).toBeVisible();
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("link", { name: "Skip to content" }),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("main")).toBeFocused();
+  await expect(
+    page.getByRole("region", { name: "Job opportunities" }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Review", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Your application review" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Review application", exact: true }),
+  ).toBeDisabled();
   const boundary = await page.evaluate(async () => ({
     hasRequire: "require" in window,
     hasProcess: "process" in window,
