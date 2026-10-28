@@ -1,0 +1,23 @@
+{
+  "name": "@applyatease/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=../../.env src/main.ts",
+    "build": "vite build",
+    "start": "node --env-file=../../.env dist/main.js",
+    "db:migrate": "tsx --env-file=../../.env src/database/migrate.ts"
+  },
+  "dependencies": {
+    "@applyatease/contracts": "workspace:*",
+    "@effect/platform-node": "4.0.7",
+    "@effect/sql-pg": "4.0.7",
+    "better-auth": "1.7.14",
+    "effect": "4.0.7",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "vite": "8.3.5"
+  }
+}

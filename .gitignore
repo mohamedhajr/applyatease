@@ -8,7 +8,11 @@ node_modules/
 .pnpm-store/
 dist/
 build/
+out/
+release/
 coverage/
+test-results/
+playwright-report/
 .vite/
 *.tsbuildinfo
 
