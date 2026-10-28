@@ -1,3 +1,5 @@
+import { Link } from "@tanstack/react-router";
+import { useProfile } from "../onboarding/ProfileProvider.tsx";
 import { Button } from "@base-ui/react/button";
 import {
   ArrowUp,
@@ -43,6 +45,7 @@ export function AgentConversation({
   detailsVisible: boolean;
 }) {
   const [draft, setDraft] = useState("");
+  const { data } = useProfile();
   const input = useRef<HTMLTextAreaElement>(null);
   return (
     <section className="conversation panel" aria-label="Agent conversation">
@@ -91,6 +94,17 @@ export function AgentConversation({
             Bring the role, your experience and the next steps together. This is
             where you’ll work through each opportunity with your agent.
           </p>
+          <Link
+            className="onb-workspace-link"
+            to={data?.profile.confirmedAt ? "/profile" : "/onboarding"}
+          >
+            {data?.profile.confirmedAt
+              ? "View your search profile"
+              : data?.profile.updatedAt
+                ? "Resume your setup"
+                : "Set up your search profile"}{" "}
+            <span aria-hidden="true">→</span>
+          </Link>
           <div
             className="conversation-suggestions"
             aria-label="Draft a message"

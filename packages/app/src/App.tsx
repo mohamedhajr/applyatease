@@ -15,6 +15,7 @@ import {
   Link,
   Outlet,
   RouterProvider,
+  useRouterState,
 } from "@tanstack/react-router";
 import { Schema } from "effect";
 import {
@@ -29,6 +30,9 @@ import {
   Sprout,
 } from "lucide-react";
 import { useRef, useState } from "react";
+import { Onboarding } from "./onboarding/Onboarding.tsx";
+import { ProfilePage } from "./onboarding/ProfileReview.tsx";
+import { ProfileProvider } from "./onboarding/ProfileProvider.tsx";
 import { OpportunityWorkspace } from "./workspace/OpportunityWorkspace.tsx";
 
 type Platform =
@@ -66,7 +70,12 @@ const applicationsRoute = createRoute({
 const profileRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/profile",
-  component: Profile,
+  component: ProfilePage,
+});
+const onboardingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/onboarding",
+  component: Onboarding,
 });
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -83,6 +92,7 @@ function makeRouter(context: AppContext) {
       archiveRoute,
       applicationsRoute,
       profileRoute,
+      onboardingRoute,
       settingsRoute,
     ]),
     history:
@@ -113,7 +123,9 @@ export function App({
   );
   return (
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <ProfileProvider>
+        <RouterProvider router={router} />
+      </ProfileProvider>
     </QueryClientProvider>
   );
 }
@@ -129,6 +141,10 @@ const views = [
 ] as const;
 function Shell() {
   const main = useRef<HTMLElement>(null);
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+  if (pathname === "/onboarding") return <Outlet />;
   return (
     <div className="app-shell">
       <a
@@ -266,17 +282,6 @@ function Applications() {
     />
   );
 }
-function Profile() {
-  return (
-    <EmptyPage
-      title="Your profile"
-      description="The experience and preferences behind every match."
-      message="Start with your experience"
-      detail="CV import and career preferences will be available here."
-    />
-  );
-}
-
 function Preferences() {
   const { platform, apiBaseUrl } = rootRoute.useRouteContext();
   const connection = useQuery({
