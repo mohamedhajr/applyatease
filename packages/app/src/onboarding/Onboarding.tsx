@@ -10,7 +10,15 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { payForStep, stepsFor, validationFor, type Step } from "./model.ts";
+import {
+  payForStep,
+  stepsFor,
+  validationFor,
+  shouldAsk,
+  confirmStep,
+  skipStep,
+  type Step,
+} from "./model.ts";
 import { useProfile } from "./ProfileProvider.tsx";
 import { ProfileReview, SaveStatus } from "./ProfileReview.tsx";
 import { QuestionBody } from "./QuestionBody.tsx";
@@ -27,12 +35,28 @@ export function Onboarding() {
   const auth = useAuth();
   const p = data?.profile;
   const steps = p ? stepsFor(p) : [];
-  const fallback: Step = p?.step.startsWith("level:")
-    ? "roles"
-    : p?.step.startsWith("pay:")
-      ? "work"
-      : "goal";
-  const step = p && steps.includes(p.step) ? p.step : fallback;
+  const fallback: Step =
+    p?.step === "timezone"
+      ? p.workModes.includes("remote")
+        ? "overlap"
+        : "work-modes"
+      : p?.step.startsWith("level:") || p?.step.startsWith("experience:")
+        ? "roles"
+        : p?.step.startsWith("pay:")
+          ? "work"
+          : "goal";
+  const extraEdit =
+    p?.visited.includes("review") &&
+    [
+      "travel",
+      "exclusions",
+      "evidence",
+      "sample-url",
+      "contribution",
+      "cv-notes",
+      "cv-review",
+    ].includes(p.step);
+  const step = p && (steps.includes(p.step) || extraEdit) ? p.step : fallback;
   const index = steps.indexOf(step);
   const question = p
     ? questionFor(step, p)
@@ -67,7 +91,8 @@ export function Onboarding() {
     }
     if (skip && (salary || step === "compensation")) {
       update({ payEnabled: false });
-      go("evidence");
+      update(skipStep(p, step), undefined, true);
+      go("review");
       return;
     }
     if (skip && ["evidence", "sample-url", "contribution"].includes(step)) {
@@ -75,7 +100,14 @@ export function Onboarding() {
       go("review");
       return;
     }
-    const following = steps[index + 1];
+    update(skip ? skipStep(p, step) : confirmStep(p, step), undefined, true);
+    if (extraEdit) {
+      go("review");
+      return;
+    }
+    const following = steps
+      .slice(index + 1)
+      .find((s) => s === "review" || shouldAsk(s, p));
     if (following) go(following);
   }
   return (
@@ -231,11 +263,11 @@ export function Onboarding() {
                     {busy
                       ? "Reading your document…"
                       : step === "cv" && p.cv
-                        ? "Review CV text"
+                        ? "Continue to CV insights"
                         : "Continue"}
                     <ArrowRight size={17} aria-hidden="true" />
                   </Button>
-                  {step !== "roles" && !interlude && (
+                  {!interlude && (
                     <Button
                       variant="ghost"
                       type="button"
@@ -259,7 +291,9 @@ export function Onboarding() {
           {status === "error" && <SaveStatus detailed />}
           <footer className="onb-footer">
             <LockKeyhole size={13} />
-            Your profile stays on this device. Nothing is sent to employers.
+            Your profile is saved on this device. Analysis sends extracted CV
+            text to your model only when you choose it. Nothing is sent to
+            employers.
           </footer>
         </main>
       )}

@@ -12,6 +12,10 @@ export async function startWithRole(page: Page, title = "DevOps Engineer") {
   await page.getByRole("button", { name: title, exact: true }).click();
   await next(page);
   await expect(
+    page.getByRole("heading", { name: `What is your experience in ${title}?` }),
+  ).toBeVisible();
+  await skip(page);
+  await expect(
     page.getByRole("heading", { name: `What level for ${title}?` }),
   ).toBeVisible();
   await skip(page);
@@ -19,21 +23,15 @@ export async function startWithRole(page: Page, title = "DevOps Engineer") {
 }
 export async function goToContractPay(page: Page) {
   await startWithRole(page);
-  for (const heading of [
-    "Where will you work from?",
-    "Where do you currently live?",
-    "What’s your time zone?",
-    "When can you overlap with a team?",
-  ]) {
-    await expect(page.getByRole("heading", { name: heading })).toBeVisible();
-    await skip(page);
-  }
+  await page.getByRole("checkbox", { name: "Remote", exact: true }).check();
+  await next(page);
   await page.getByRole("checkbox", { name: /Long-term contract/ }).check();
   await next(page);
   for (const heading of [
+    "Where do you currently live?",
+    "Where will you work from?",
+    "When can you overlap with a team?",
     "When could you start?",
-    "How do you feel about work travel?",
-    "Anything you’d rather avoid?",
   ]) {
     await expect(page.getByRole("heading", { name: heading })).toBeVisible();
     await skip(page);

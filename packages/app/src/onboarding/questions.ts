@@ -1,5 +1,10 @@
 import {
   creativeProfile,
+  experienceStep,
+  countryForStep,
+  payFor,
+  employmentOptions,
+  effectiveAnalysis,
   payForStep,
   roleForStep,
   type Profile,
@@ -28,6 +33,21 @@ const questions: Record<string, Question> = {
     "Bring your English CV. There’s no need to type your career history again.",
     0,
   ),
+  "cv-analysis": q(
+    "Your experience, in perspective.",
+    "Analyze your CV for source-backed suggestions, or continue manually.",
+    0,
+  ),
+  "work-modes": q(
+    "Where would you like to work?",
+    "Choose every work mode you’re open to.",
+    1,
+  ),
+  "in-person": q(
+    "Where could you work in person?",
+    "Select physical work countries, including your current country if relevant. Employer headquarters are separate.",
+    1,
+  ),
   "cv-review": q(
     "Does this look like your story?",
     "Check the text from every page against your original before using it as a career source.",
@@ -55,11 +75,6 @@ const questions: Record<string, Question> = {
     "Your residence can differ from your working country. Keep the two separate.",
     1,
   ),
-  timezone: q(
-    "What’s your time zone?",
-    "This helps check team overlap without guessing from your location.",
-    1,
-  ),
   overlap: q(
     "When can you overlap with a team?",
     "Include a time zone. These are preferred hours, not a commitment to an employer’s schedule.",
@@ -67,7 +82,7 @@ const questions: Record<string, Question> = {
   ),
   work: q(
     "How would you like to work?",
-    "English-language, remote work. Choose every arrangement you’re open to.",
+    "Choose every employment arrangement you’re open to.",
     1,
   ),
   eligibility: q("Are you currently authorized to work?", "", 2),
@@ -115,6 +130,30 @@ const questions: Record<string, Question> = {
   ),
 };
 export function questionFor(step: Step, p: Profile): Question {
+  const experienceRole = p.roles.find((r) => experienceStep(r.title) === step);
+  if (experienceRole)
+    return q(
+      `What is your experience in ${experienceRole.title}?`,
+      "Confirm your current experience in this direction. Your desired next level comes separately.",
+      1,
+    );
+  const country = countryForStep(step, p);
+  if (country)
+    return q(
+      step.startsWith("country:")
+        ? `What is your work authorization status in ${country}?`
+        : step.startsWith("sponsor:")
+          ? `Would you need sponsorship now in ${country}?`
+          : `Might you need sponsorship later in ${country}?`,
+      "Your answer applies to this physical work country. Actual employer declarations need their own review.",
+      2,
+    );
+  if (step === "roles" && effectiveAnalysis(p)?.roles.length)
+    return q(
+      "Do these directions match what you’re looking for?",
+      "Choose suggestions, add another role or explore a career change. Suggestions are not qualifications.",
+      1,
+    );
   const role = roleForStep(step, p);
   if (role)
     return q(
@@ -124,11 +163,8 @@ export function questionFor(step: Step, p: Profile): Question {
     );
   const salary = payForStep(step);
   if (salary) {
-    const pay = p[salary.key];
-    const basis =
-      salary.basis === "full-time"
-        ? "Full-time employment · gross pay"
-        : "Long-term contract · before tax and expenses";
+    const pay = payFor(p, salary.basis);
+    const basis = `${employmentOptions.find(([code]) => code === salary.basis)?.[1]} · ${salary.basis.includes("contract") ? "before tax and expenses" : "gross pay"}`;
     const context = `${basis}${pay.currency ? ` · ${pay.currency}` : ""}${pay.period ? ` / ${pay.period}` : ""}`;
     const title =
       salary.question === "currency"

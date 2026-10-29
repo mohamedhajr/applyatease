@@ -951,3 +951,27 @@
     min-height: 48px;
   }
 }
+
+.onb-insights {
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+}
+.onb-insights details {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+.onb-insights summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.onb-insights blockquote {
+  margin: 1rem 0;
+  padding-left: 1rem;
+  border-left: 2px solid currentColor;
+  overflow-wrap: anywhere;
+}
+.onb-snapshot {
+  font-size: 1.1rem;
+  line-height: 1.6;
+}

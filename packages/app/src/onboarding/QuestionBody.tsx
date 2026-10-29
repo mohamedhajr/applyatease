@@ -9,8 +9,18 @@ import {
   payForStep,
   roleForStep,
   suggestedRoles,
-  type Profile,
   type Step,
+} from "./model.ts";
+import { CvInsights } from "./CvInsights.tsx";
+import {
+  newRole,
+  experienceStep,
+  countryForStep,
+  blankCountryAnswer,
+  payFor,
+  employmentOptions,
+  effectiveFact,
+  effectiveAnalysis,
 } from "./model.ts";
 import { useProfile } from "./ProfileProvider.tsx";
 import { SearchAnswer, suggest } from "./SearchAnswer.tsx";
@@ -31,7 +41,6 @@ const countrySuggestions = suggest([
   "Singapore",
   "Australia",
 ]);
-const timezones = suggest(Intl.supportedValuesOf("timeZone"));
 const currencyNames = new Intl.DisplayNames(["en"], { type: "currency" });
 const currencyCodes = Intl.supportedValuesOf("currency");
 const currencies = [
@@ -111,7 +120,95 @@ export function QuestionBody({
   const { data, update } = useProfile();
   if (!data) return null;
   const p = data.profile;
+  const analysis = effectiveAnalysis(p);
   const role = roleForStep(step, p);
+  const experienceRole = p.roles.find((r) => experienceStep(r.title) === step);
+  const country = countryForStep(step, p);
+  if (country) {
+    const answer = p.countryAnswers[country] ?? blankCountryAnswer();
+    const key = step.startsWith("country:")
+      ? "authorization"
+      : step.startsWith("sponsor:")
+        ? "sponsorshipNow"
+        : "sponsorshipLater";
+    const choices =
+      key === "authorization"
+        ? ([
+            ["unrestricted", "Authorized without restrictions"],
+            ["yes", "Authorized with conditions or limits"],
+            ["no", "Not currently authorized"],
+            ["unsure", "Not sure yet"],
+          ] as const)
+        : ([
+            ["yes", "Yes"],
+            ["no", "No"],
+            ["unsure", "Not sure yet"],
+          ] as const);
+    return (
+      <div
+        className="onb-options"
+        role="radiogroup"
+        aria-labelledby="onboarding-question"
+      >
+        {choices.map(([value, title]) => (
+          <Choice
+            key={value}
+            name="country-answer"
+            value={value}
+            title={title}
+            selected={answer[key] === value}
+            onChange={(value) =>
+              update({
+                countryAnswers: {
+                  ...p.countryAnswers,
+                  [country]: {
+                    ...answer,
+                    [key]: value,
+                    confirmedAt: new Date().toISOString(),
+                  },
+                },
+              })
+            }
+          />
+        ))}
+      </div>
+    );
+  }
+  if (experienceRole) {
+    const suggestion = analysis?.roles.find(
+      (r) => r.title.toLowerCase() === experienceRole.title.toLowerCase(),
+    );
+    return (
+      <>
+        {suggestion && (
+          <p className="onb-note">
+            Your CV suggests{" "}
+            {suggestion.experienceLevel || "a level needing clarification"}.{" "}
+            {suggestion.uncertainty} This is a proposal for this direction, not
+            a verified qualification.
+          </p>
+        )}
+        <Options
+          name="experience"
+          selected={experienceRole.experienceLevel}
+          choices={["New to this role", ...levels, "Not sure yet"]}
+          onChange={(experienceLevel) =>
+            update({
+              roles: p.roles.map((r) =>
+                r.title === experienceRole.title
+                  ? {
+                      ...r,
+                      experienceLevel,
+                      experienceConfirmedAt: new Date().toISOString(),
+                    }
+                  : r,
+              ),
+            })
+          }
+        />
+      </>
+    );
+  }
   if (role)
     return (
       <Options
@@ -129,9 +226,14 @@ export function QuestionBody({
     );
   const salary = payForStep(step);
   if (salary) {
-    const pay = p[salary.key];
-    const set = (patch: Partial<Profile[typeof salary.key]>) =>
-      update({ [salary.key]: { ...pay, ...patch } });
+    const pay = payFor(p, salary.basis);
+    const set = (patch: Partial<typeof pay>) =>
+      update({
+        payByEmployment: {
+          ...p.payByEmployment,
+          [salary.basis]: { ...pay, ...patch },
+        },
+      });
     if (salary.question === "currency")
       return (
         <>
@@ -201,6 +303,8 @@ export function QuestionBody({
     );
   }
   switch (step) {
+    case "cv-analysis":
+      return <CvInsights />;
     case "goal":
       return (
         <>
@@ -291,8 +395,8 @@ export function QuestionBody({
             ))}
             <p className="onb-hint">
               Text order can differ in columns. This is source text, not a
-              verified career profile. Career analysis and tailoring are not
-              connected yet. You can add a correction on the next screen.
+              verified career profile. CV analysis is available separately;
+              tailoring is not connected. Add corrections in your profile.
             </p>
             <label className="onb-check">
               <input
@@ -357,7 +461,12 @@ export function QuestionBody({
             label="Role titles"
             placeholder="Search or add a role title"
             selected={p.roles.map((r) => r.title)}
-            options={suggest(suggestedRoles)}
+            options={suggest([
+              ...new Set([
+                ...(analysis?.roles.map((r) => r.title) ?? []),
+                ...suggestedRoles,
+              ]),
+            ])}
             multiple
             onSelect={(title) => {
               if (
@@ -365,7 +474,7 @@ export function QuestionBody({
                   (r) => r.title.toLowerCase() === title.toLowerCase(),
                 )
               )
-                update({ roles: [...p.roles, { title, level: "" }] });
+                update({ roles: [...p.roles, newRole(title)] });
             }}
             onRemove={(title) =>
               update({ roles: p.roles.filter((r) => r.title !== title) })
@@ -407,7 +516,7 @@ export function QuestionBody({
       return (
         <>
           <SearchAnswer
-            label="Working country"
+            label="Physical remote-work country"
             placeholder="Search or add a country"
             selected={p.country ? [p.country] : []}
             options={countrySuggestions}
@@ -421,37 +530,116 @@ export function QuestionBody({
           </p>
         </>
       );
-    case "residence":
+    case "residence": {
+      const facts =
+        p.analysis.result?.facts.filter(
+          (f) => f.kind === "residence" && !f.uncertainty,
+        ) ?? [];
+      const fact = facts.length === 1 ? facts[0] : undefined;
+      const proposed = fact ? effectiveFact(p, fact) : null;
       return (
-        <SearchAnswer
-          label="Country of residence"
-          placeholder="Search or add a country"
-          selected={p.residence ? [p.residence] : []}
-          options={
-            p.country
-              ? [
-                  {
-                    value: p.country,
-                    label: `${p.country} · same as working country`,
-                  },
-                  ...countrySuggestions.filter((o) => o.value !== p.country),
-                ]
-              : countrySuggestions
-          }
-          onSelect={(residence) => update({ residence })}
-          onRemove={() => update({ residence: "" })}
-          onPending={onPending}
-        />
+        <>
+          {fact && proposed?.status !== "candidate_denied" && (
+            <div className="onb-note">
+              <div>
+                <p>
+                  Your CV lists {proposed?.value}. Is this where you’re
+                  currently based?
+                </p>
+                <Button
+                  type="button"
+                  className="onb-text"
+                  onClick={() =>
+                    update({
+                      residence: proposed!.value,
+                      corrections: [
+                        ...p.corrections,
+                        {
+                          factId: fact.id,
+                          sourceHash: p.analysis.sourceHash,
+                          value: proposed!.value,
+                          status: "candidate_confirmed",
+                          confirmedAt: new Date().toISOString(),
+                        },
+                      ],
+                    })
+                  }
+                >
+                  Yes, use this location
+                </Button>
+                <p className="onb-hint">
+                  Or change it below. A location does not establish work
+                  authorization.
+                </p>
+              </div>
+            </div>
+          )}
+          <SearchAnswer
+            label="Current residence"
+            placeholder="Search or add your city and country"
+            selected={p.residence ? [p.residence] : []}
+            options={countrySuggestions}
+            onSelect={(residence) => update({ residence })}
+            onRemove={() => update({ residence: "" })}
+            onPending={onPending}
+          />
+        </>
       );
-    case "timezone":
+    }
+    case "work-modes":
+      return (
+        <div
+          className="onb-options"
+          role="group"
+          aria-labelledby="onboarding-question"
+        >
+          {(["remote", "hybrid", "on-site"] as const).map((value) => (
+            <Choice
+              key={value}
+              name="work-mode"
+              multiple
+              value={value}
+              title={
+                value === "remote"
+                  ? "Remote"
+                  : value === "hybrid"
+                    ? "Hybrid"
+                    : "On-site"
+              }
+              selected={p.workModes.includes(value)}
+              onChange={(mode) =>
+                update({
+                  workModes: p.workModes.includes(mode)
+                    ? p.workModes.filter((m) => m !== mode)
+                    : [...p.workModes, mode],
+                })
+              }
+            />
+          ))}
+        </div>
+      );
+    case "in-person":
       return (
         <SearchAnswer
-          label="Time zone"
-          placeholder="Search a city, time zone or UTC offset"
-          selected={p.timezone ? [p.timezone] : []}
-          options={timezones}
-          onSelect={(timezone) => update({ timezone })}
-          onRemove={() => update({ timezone: "" })}
+          label="In-person work countries"
+          placeholder="Search or add a country you could work in"
+          multiple
+          selected={p.inPersonCountries}
+          options={countrySuggestions}
+          onSelect={(country) =>
+            update({
+              inPersonCountries: [
+                ...new Set([...p.inPersonCountries, country]),
+              ],
+            })
+          }
+          onRemove={(country) =>
+            update({
+              inPersonCountries: p.inPersonCountries.filter(
+                (c) => c !== country,
+              ),
+            })
+          }
           onPending={onPending}
         />
       );
@@ -474,27 +662,13 @@ export function QuestionBody({
             role="group"
             aria-labelledby="onboarding-question"
           >
-            {(
-              [
-                [
-                  "full-time",
-                  "Full-time employment",
-                  "A permanent role with an employer.",
-                ],
-                [
-                  "contract",
-                  "Long-term contract",
-                  "An ongoing engagement as an independent contractor.",
-                ],
-              ] as const
-            ).map(([value, title, detail]) => (
+            {employmentOptions.map(([value, title]) => (
               <Choice
                 key={value}
                 name="employment"
                 multiple
                 value={value}
                 title={title}
-                detail={detail}
                 selected={p.employment.includes(value)}
                 onChange={(v) =>
                   update({
@@ -507,8 +681,8 @@ export function QuestionBody({
             ))}
           </div>
           <p className="onb-hint">
-            Both choices are remote. Short gigs, part-time roles and internships
-            are outside this search.
+            These are your preferences. Search and application support for each
+            arrangement will be checked when those features are connected.
           </p>
         </>
       );

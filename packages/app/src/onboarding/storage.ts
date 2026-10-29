@@ -1,5 +1,5 @@
-import { Data, Effect, Schema } from "effect";
-import { emptyProfile, Profile } from "./model.ts";
+import { Data, Effect } from "effect";
+import { emptyProfile, migrateProfile, type Profile } from "./model.ts";
 
 export type LocalProfile = {
   profile: Profile;
@@ -36,7 +36,7 @@ function decodeRecord(value: unknown): LocalProfile {
     throw new Error(
       "Your saved profile could not be read. It has not been overwritten.",
     );
-  const profile = Schema.decodeUnknownSync(Profile)(value.profile);
+  const profile = migrateProfile(value.profile);
   if (
     !(value.original === null || value.original instanceof Blob) ||
     typeof value.revision !== "number" ||

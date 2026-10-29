@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { Schema } from "effect";
 import {
   compareAmounts,
+  newRole,
+  confirmStep,
+  skipStep,
+  shouldAsk,
+  payFor,
+  payUnits,
+  migrateProfile,
+  relevantCountries,
+  countryStep,
+  blankCountryAnswer,
   editProfile,
   emptyProfile,
   levelStep,
@@ -35,13 +45,13 @@ describe("search profile rules", () => {
     const p = {
       ...emptyProfile(),
       roles: [
-        { title: "DevOps Engineer", level: "Senior" },
-        { title: "Video Editor", level: "" },
+        { ...newRole("DevOps Engineer"), level: "Senior" },
+        newRole("Video Editor"),
       ],
     };
     const steps = stepsFor(p);
     expect(steps.indexOf(levelStep("Video Editor"))).toBe(
-      steps.indexOf(levelStep("DevOps Engineer")) + 1,
+      steps.indexOf(levelStep("DevOps Engineer")) + 2,
     );
     expect(stepsFor({ ...p, roles: [p.roles[1]!] })).toContain(
       levelStep("Video Editor"),
@@ -66,9 +76,9 @@ describe("search profile rules", () => {
     };
     const changed = editProfile(p, { country: "United Arab Emirates" });
     expect(changed.confirmedAt).toBe("");
-    expect(changed.authorization).toBe("");
-    expect(changed.sponsorshipNow).toBe("");
-    expect(changed.sponsorshipLater).toBe("");
+    expect(changed.authorization).toBe(p.authorization);
+    expect(changed.sponsorshipNow).toBe(p.sponsorshipNow);
+    expect(changed.sponsorshipLater).toBe(p.sponsorshipLater);
     expect(changed.goal).toBe(p.goal);
     expect(changed.timezone).toBe(p.timezone);
   });
@@ -77,11 +87,14 @@ describe("search profile rules", () => {
       ...emptyProfile(),
       employment: ["contract" as const],
       payEnabled: true,
-      contractPay: {
-        minimum: "35000",
-        target: "30000",
-        currency: "AED",
-        period: "month" as const,
+      payByEmployment: {
+        contract: {
+          confirmedUnits: "",
+          minimum: "35000",
+          target: "30000",
+          currency: "AED",
+          period: "month" as const,
+        },
       },
     };
     expect(validationFor(payStep("contract", "minimum"), p)).toBeNull();
@@ -89,24 +102,29 @@ describe("search profile rules", () => {
     expect(
       validationFor(payStep("contract", "currency"), {
         ...p,
-        contractPay: { ...p.contractPay, currency: "" },
+        payByEmployment: {
+          contract: { ...p.payByEmployment.contract, currency: "" },
+        },
       }),
     ).toMatch(/currency/);
     expect(
       validationFor(payStep("contract", "period"), {
         ...p,
-        contractPay: { ...p.contractPay, period: "" },
+        payByEmployment: {
+          contract: { ...p.payByEmployment.contract, period: "" },
+        },
       }),
     ).toMatch(/period/);
     expect(
       validationFor(payStep("contract", "minimum"), {
         ...p,
-        contractPay: { ...p.contractPay, minimum: "35k" },
+        payByEmployment: {
+          contract: { ...p.payByEmployment.contract, minimum: "35k" },
+        },
       }),
     ).toMatch(/digits/);
     expect(
-      reviewIssue({ ...p, roles: [{ title: "DevOps Engineer", level: "" }] })
-        ?.step,
+      reviewIssue({ ...p, roles: [newRole("DevOps Engineer")] })?.step,
     ).toBe(payStep("contract", "target"));
   });
   it("preserves decimal precision and expands the range without clamping", () => {
@@ -134,11 +152,119 @@ describe("search profile rules", () => {
     expect(validSampleUrl("https://name:secret@example.org")).toBe(false);
     expect(validSampleUrl("https://github.com/")).toBe(true);
   });
-  it("leaves irrelevant missing facts nonblocking, but requires a search direction", () => {
+  it("allows entering the profile with optional gaps", () => {
     const p = emptyProfile();
-    expect(reviewIssue(p)?.step).toBe("roles");
+    expect(reviewIssue(p)).toBeNull();
     expect(
-      reviewIssue({ ...p, roles: [{ title: "DevOps Engineer", level: "" }] }),
+      reviewIssue({ ...p, roles: [newRole("DevOps Engineer")] }),
     ).toBeNull();
+  });
+});
+
+describe("scoped onboarding", () => {
+  it("keeps physical countries separate and never restores a timezone screen", () => {
+    const p: Profile = {
+      ...emptyProfile(),
+      workModes: ["remote", "hybrid"],
+      country: "Egypt",
+      inPersonCountries: ["Germany"],
+      employment: ["part-time"],
+    };
+    expect(relevantCountries(p)).toEqual(["Egypt", "Germany"]);
+    expect(stepsFor(p)).toContain("overlap");
+    expect(stepsFor(p)).not.toContain("timezone");
+    expect(stepsFor({ ...p, workModes: ["on-site"] })).not.toContain("overlap");
+    expect(relevantCountries({ ...p, employment: ["short-contract"] })).toEqual(
+      [],
+    );
+    const changed = editProfile(
+      {
+        ...p,
+        countryAnswers: {
+          Egypt: { ...blankCountryAnswer(), authorization: "unrestricted" },
+        },
+      },
+      { country: "Canada" },
+    );
+    expect(relevantCountries(changed)).toEqual(["Canada", "Germany"]);
+    expect(changed.countryAnswers.Egypt?.authorization).toBe("unrestricted");
+    expect(stepsFor(p)).toContain(countryStep("Egypt"));
+  });
+  it("keeps skipped, confirmed, and missing scopes distinct", () => {
+    expect(confirmStep(emptyProfile(), "location")).toEqual({});
+    const p = { ...emptyProfile(), country: "Egypt" };
+    const confirmed = { ...p, ...confirmStep(p, "location") };
+    expect(shouldAsk("location", confirmed)).toBe(false);
+    const skipped = { ...confirmed, ...skipStep(confirmed, "location") };
+    expect(skipped.skipped).toContain("location");
+    expect(shouldAsk("location", skipped)).toBe(true);
+    expect(
+      shouldAsk("location", editProfile(confirmed, { country: "Canada" })),
+    ).toBe(true);
+  });
+  it("retains role drafts and completed setup during focused edits", () => {
+    const p = {
+      ...emptyProfile(),
+      setupCompletedAt: "saved",
+      roles: [
+        {
+          ...newRole("DevOps Engineer"),
+          level: "Senior",
+          experienceLevel: "Mid level",
+        },
+      ],
+    };
+    const removed = editProfile(p, { roles: [] });
+    const added = editProfile(removed, { roles: [newRole("DevOps Engineer")] });
+    expect(added.roles[0]?.level).toBe("Senior");
+    expect(added.roles[0]?.experienceLevel).toBe("Mid level");
+    expect(added.setupCompletedAt).toBe("saved");
+  });
+  it("requires renewed amount confirmation when pay units change without rounding drafts", () => {
+    let p: Profile = {
+      ...emptyProfile(),
+      employment: ["internship"],
+      payEnabled: true,
+      payByEmployment: {
+        internship: {
+          currency: "USD",
+          period: "month",
+          minimum: "35000.1234567",
+          target: "",
+          confirmedUnits: "",
+        },
+      },
+    };
+    p = { ...p, ...confirmStep(p, payStep("internship", "minimum")) };
+    expect(payFor(p, "internship").confirmedUnits).toBe(
+      payUnits(payFor(p, "internship")),
+    );
+    p = { ...p, ...confirmStep(p, payStep("internship", "target")) };
+    expect(payFor(p, "internship").confirmedUnits).toBe(
+      payUnits(payFor(p, "internship")),
+    );
+    const changed = editProfile(p, {
+      payByEmployment: {
+        internship: { ...payFor(p, "internship"), currency: "EUR" },
+      },
+    });
+    expect(payFor(changed, "internship").confirmedUnits).toBe("");
+    expect(payFor(changed, "internship").minimum).toBe("35000.1234567");
+    expect(shouldAsk(payStep("internship", "minimum"), changed)).toBe(true);
+  });
+  it("migrates old general authorization without asserting restricted authorization", () => {
+    const legacy = {
+      ...emptyProfile(),
+      version: 1,
+      country: "Egypt",
+      authorization: "yes",
+      updatedAt: "saved",
+      confirmedAt: "done",
+      roles: [{ title: "DevOps Engineer", level: "Senior" }],
+    };
+    const migrated = migrateProfile(legacy);
+    expect(migrated.countryAnswers.Egypt?.authorization).toBe("unsure");
+    expect(migrated.setupCompletedAt).toBe("done");
+    expect(migrated.roles[0]?.experienceLevel).toBe("");
   });
 });
