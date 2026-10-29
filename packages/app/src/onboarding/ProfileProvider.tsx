@@ -1,5 +1,12 @@
 import { Effect, Schema } from "effect";
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 import { extractCv } from "./cv.ts";
 import { CvAnalysis, validateAnalysis } from "./analysis.ts";
@@ -307,7 +314,7 @@ export function ProfileProvider({
       null,
     );
   }
-  useEffect(() => {
+  useLayoutEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
       if (status === "saving" || (status === "error" && data))
         event.preventDefault();
