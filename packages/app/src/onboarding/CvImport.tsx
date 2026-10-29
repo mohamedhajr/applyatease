@@ -1,7 +1,6 @@
 import { Button } from "@base-ui/react/button";
 import { FileText } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { extractCv } from "./cv.ts";
 import { useProfile } from "./ProfileProvider.tsx";
 
 export function CvImport({
@@ -13,7 +12,7 @@ export function CvImport({
   onBusy: (busy: boolean) => void;
   onError: (message: string) => void;
 }) {
-  const { data, update } = useProfile();
+  const { data, importCv, removeCv } = useProfile();
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -27,8 +26,7 @@ export function CvImport({
     onBusy(true);
     onError("");
     try {
-      const source = await extractCv(file);
-      if (mounted.current) update({ cv: source }, file);
+      await importCv(file);
     } catch (error) {
       if (mounted.current)
         onError(
@@ -76,14 +74,14 @@ export function CvImport({
           <div>
             <strong>{cv.name}</strong>
             <small>
-              {cv.reviewedAt ? "Text reviewed" : "Text extracted · review next"}
+              {!cv.sections.some((s) => s.text.trim())
+                ? "Original preserved · readable extraction unavailable"
+                : cv.reviewedAt
+                  ? "Text reviewed"
+                  : "Text extracted · review next"}
             </small>
           </div>
-          <Button
-            type="button"
-            className="onb-text"
-            onClick={() => update({ cv: null }, null)}
-          >
+          <Button type="button" className="onb-text" onClick={removeCv}>
             Remove CV
           </Button>
         </div>

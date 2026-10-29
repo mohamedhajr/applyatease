@@ -6,6 +6,7 @@
   "exports": {
     "./health": "./src/health.ts",
     "./desktop": "./src/desktop.ts",
+    "./career": "./src/career.ts",
     "./auth": "./src/auth.ts"
   },
   "dependencies": {

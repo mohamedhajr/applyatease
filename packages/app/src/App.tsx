@@ -36,7 +36,7 @@ import {
 } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 import { Onboarding } from "./onboarding/Onboarding.tsx";
-import { ProfilePage } from "./onboarding/ProfileReview.tsx";
+import { ProfilePage } from "./profile/ProfilePage.tsx";
 import { ProfileProvider, useProfile } from "./onboarding/ProfileProvider.tsx";
 import { OpportunityWorkspace } from "./workspace/OpportunityWorkspace.tsx";
 

@@ -8,7 +8,7 @@ A web and desktop job-search assistant designed to help you:
 - Review and approve each application before submission.
 - Track saved jobs, application materials, progress and next steps.
 
-Early development: web and desktop share an opportunity workspace with an agent conversation area, match details and application review panels. Guided onboarding saves an editable search profile locally and reads text from English PDF/DOCX CVs without uploading them. Email-code, Google and Apple sign-in follow onboarding when their providers are configured. Structured career analysis, tailoring, job discovery, agent chat and application workflows are not connected yet.
+Early development: web and desktop share an opportunity workspace with an agent conversation area, match details and application review panels. Guided onboarding and an editable career profile share local storage. English PDF/DOCX text is extracted on-device. Optional CV analysis sends extracted text through your signed-in local Codex CLI, then shows source-linked career facts, role suggestions and findings for review. Email-code, Google and Apple sign-in follow onboarding when their providers are configured. Tailoring, job discovery, agent chat and application workflows are not connected yet.
 
 ## Run locally
 
@@ -38,13 +38,19 @@ The web app opens at `http://127.0.0.1:5173`. The desktop command downloads Elec
 
 ## Set up your search
 
-Choose **Set up your search profile** in the workspace, or open **Your profile**. Setup covers your goal, CV review, editable role tracks, working country, employment arrangements, scoped eligibility and optional preferences/work samples. Each question gets its own screen, with separate illustrated interludes. Searchable role and location answers use selected chips; role levels and other single choices use cards. You can go back, leave questions for later, exit and resume, or edit an individual answer from review. Confirming a profile never approves an application.
+Choose **Set up your search profile** in the workspace, or open **Your profile**. Setup covers your goal, optional CV analysis, editable role tracks, separate current experience and desired levels, work modes, physical work countries and scoped authorization. Remote, hybrid and on-site preferences and full-time, part-time, long-term contract, short-term contract and internship arrangements are captured; this does not establish search support for every arrangement. Each question gets its own screen, with separate illustrated interludes. Searchable role and location answers use selected chips; role levels and other single choices use cards. You can go back, leave questions for later, exit and resume, or edit an individual answer from review. Confirming a profile never approves an application.
 
-Compensation preferences keep full-time gross pay separate from contract pay before tax and expenses. Currency, pay period, private minimum and target are separate questions. Amounts use a slider and an exact editable field; typed values are retained without rounding or conversion. Large values expand the slider range. Values beyond its finite precision remain editable in the exact field with the slider disabled. Deferring compensation retains drafts but excludes them from the active preferences.
+Compensation preferences stay separate for each employment arrangement: gross employment pay and contract pay before tax and expenses. Currency, pay period, private minimum and target are separate questions. Amounts use a slider and an exact editable field; typed values are retained without rounding or conversion. Large values expand the slider range. Values beyond its finite precision remain editable in the exact field with the slider disabled. Deferring compensation retains drafts but excludes them from the active preferences. Changing currency or period preserves the amounts and requires confirmation in the new units.
 
-PDF and DOCX text is extracted locally. Review it against the original; column order and unsupported document features may need correction. Scanned documents need OCR, which is not available. Files are limited to 10 MB and PDFs to 40 pages. Structured career facts are not inferred from this text. The original file remains unchanged and can be downloaded from the profile.
+PDF and DOCX text is extracted locally. Review it against the original; column order and unsupported document features may need correction. Scanned documents need OCR, which is not available. Files are limited to 10 MB and PDFs to 40 pages. Analysis proposals preserve source references and uncertainty; selected aspirations and candidate corrections remain separate from source statements. The original file remains unchanged and can be downloaded from the profile.
 
 The profile, source text and original file are stored in IndexedDB for this browser origin or desktop app, without account sync. They are not encrypted by the app. Use **Clear local profile** to remove them; clearing browser/app data also removes them. Storage failures are shown without claiming a successful save. Concurrent edits from another window require reloading the saved version.
+
+### Optional CV analysis
+
+Install and sign in to the Codex CLI (qualified with 0.162.1) on the machine running the API (`codex login`, then `codex login status`). The local API must bind to loopback and `APP_ORIGINS` must include the client origin; the example includes `app://app` for desktop. `CODEX_EXECUTABLE` can select the CLI executable and `CODEX_ANALYSIS_MODEL` can select an available model. Account access and usage limits apply; analysis is not bundled with the app.
+
+Choose **Analyze my CV** to send the extracted text to the configured provider. The original file remains local. The analysis runs without shell/web access in an ephemeral session; validated findings include exact source quotes and the actual model identity. Source references do not independently verify a claim. Missing access, unsupported sources and failures are shown honestly; manual setup and retry remain available. Source replacement preserves preferences, corrections and prior analysis history. Clearing the local profile does not erase provider-side retention governed by that provider’s policy.
 
 Completing setup leads to sign-in, then your profile. It does not run a job search.
 

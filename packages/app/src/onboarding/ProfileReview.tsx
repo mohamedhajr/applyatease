@@ -1,17 +1,14 @@
 import { Button } from "@base-ui/react/button";
-import { Link, useNavigate } from "@tanstack/react-router";
-import {
-  ArrowRight,
-  Check,
-  FileText,
-  HardDrive,
-  Pencil,
-  RotateCcw,
-} from "lucide-react";
+import { ArrowRight, FileText, HardDrive, Pencil } from "lucide-react";
 import { useState } from "react";
 import { downloadOriginal } from "./cv.ts";
 import {
-  emptyProfile,
+  countryStep,
+  experienceStep,
+  relevantCountries,
+  employmentOptions,
+  payFor,
+  payUnits,
   levelStep,
   payStep,
   profileGaps,
@@ -19,7 +16,6 @@ import {
   type Step,
 } from "./model.ts";
 import { useProfile } from "./ProfileProvider.tsx";
-import notices from "./THIRD_PARTY_NOTICES.txt?url";
 import "./onboarding.css";
 
 export function SaveStatus({ detailed = false }: { detailed?: boolean }) {
@@ -93,7 +89,7 @@ export function ProfileReview({
               ? `Text reviewed ${new Date(p.cv.reviewedAt).toLocaleDateString()}`
               : "Text extracted · review pending",
             ...(p.cv.notes ? [`Your notes: ${p.cv.notes}`] : []),
-            "Structured career analysis pending",
+            p.analysis.message || "CV analysis not started",
           ]
         : ["No CV added · add one when you’re ready"],
     },
@@ -109,43 +105,65 @@ export function ProfileReview({
       step: levelStep(role.title),
       lines: [display(role.level)],
     })),
-    { title: "Working country", step: "location", lines: [display(p.country)] },
+    ...p.roles.map((role) => ({
+      title: `Experience · ${role.title}`,
+      step: experienceStep(role.title),
+      lines: [display(role.experienceLevel)],
+    })),
+    {
+      title: "Work modes",
+      step: "work-modes",
+      lines: [p.workModes.join(", ") || "Not set yet"],
+    },
+    ...(p.workModes.includes("remote")
+      ? [
+          {
+            title: "Working country",
+            step: "location" as const,
+            lines: [display(p.country)],
+          },
+          {
+            title: "Team overlap",
+            step: "overlap" as const,
+            lines: [display(p.overlap)],
+          },
+        ]
+      : []),
+    ...(p.workModes.some((m) => m !== "remote")
+      ? [
+          {
+            title: "In-person destinations",
+            step: "in-person" as const,
+            lines: [p.inPersonCountries.join(", ") || "Not set yet"],
+          },
+        ]
+      : []),
     { title: "Residence", step: "residence", lines: [display(p.residence)] },
-    { title: "Time zone", step: "timezone", lines: [display(p.timezone)] },
-    { title: "Team overlap", step: "overlap", lines: [display(p.overlap)] },
+
     {
       title: "Work arrangement",
       step: "work",
       lines: [
-        "Remote · English-language roles",
-        ...p.employment.map((v) =>
-          v === "full-time" ? "Full-time employment" : "Long-term contract",
+        "English-language roles",
+        ...p.employment.map(
+          (v) => employmentOptions.find(([code]) => code === v)![1],
         ),
         ...(!p.employment.length ? ["Employment preference not set"] : []),
       ],
     },
-    ...(p.employment.includes("full-time") && p.country
-      ? [
-          {
-            title: `Employment authorization · ${p.country}`,
-            step: "eligibility" as const,
-            lines: [
-              yesNo(p.authorization),
-              "Country-scoped statement; exact employer declarations still need review",
-            ],
-          },
-          {
-            title: `Sponsorship now · ${p.country}`,
-            step: "sponsorship-now" as const,
-            lines: [yesNo(p.sponsorshipNow)],
-          },
-          {
-            title: `Future sponsorship · ${p.country}`,
-            step: "sponsorship-later" as const,
-            lines: [yesNo(p.sponsorshipLater)],
-          },
-        ]
-      : []),
+    ...relevantCountries(p).map((country) => ({
+      title: `Employment authorization · ${country}`,
+      step: countryStep(country),
+      lines: [
+        p.countryAnswers[country]?.authorization === "unrestricted"
+          ? "Authorized without restrictions"
+          : p.countryAnswers[country]?.authorization === "yes"
+            ? "Authorized with conditions or limits"
+            : yesNo(p.countryAnswers[country]?.authorization ?? ""),
+        `Sponsorship now: ${yesNo(p.countryAnswers[country]?.sponsorshipNow ?? "")}`,
+        `Future sponsorship: ${yesNo(p.countryAnswers[country]?.sponsorshipLater ?? "")}`,
+      ],
+    })),
     {
       title: "Availability",
       step: "preferences",
@@ -172,11 +190,8 @@ export function ProfileReview({
       : []),
     ...(p.payEnabled
       ? p.employment.flatMap((basis) => {
-          const pay = basis === "full-time" ? p.fullTimePay : p.contractPay;
-          const label =
-            basis === "full-time"
-              ? "Employment (gross)"
-              : "Contract (before tax)";
+          const pay = payFor(p, basis);
+          const label = employmentOptions.find(([code]) => code === basis)![1];
           return [
             {
               title: `${label} · currency`,
@@ -193,7 +208,7 @@ export function ProfileReview({
               step: payStep(basis, "minimum"),
               lines: [
                 pay.minimum
-                  ? `${pay.minimum} ${pay.currency} / ${pay.period}`
+                  ? `${pay.minimum} ${pay.currency} / ${pay.period}${pay.confirmedUnits === payUnits(pay) ? "" : " · confirm units"}`
                   : "Not set yet",
               ],
             },
@@ -299,9 +314,8 @@ export function ProfileReview({
       {onFinish && (
         <>
           <p className="onb-hint">
-            Job discovery and assistant connection aren’t available yet. After
-            signing in, you can review your profile and explore the workspace.
-            No search will run.
+            Job discovery is not available yet. After signing in, you can review
+            your profile and explore the workspace. No search will run.
           </p>
           {error && (
             <p role="alert" className="onb-error">
@@ -320,7 +334,12 @@ export function ProfileReview({
                   return;
                 }
                 update(
-                  { confirmedAt: new Date().toISOString(), step: "review" },
+                  {
+                    confirmedAt: new Date().toISOString(),
+                    setupCompletedAt:
+                      p.setupCompletedAt || new Date().toISOString(),
+                    step: "review",
+                  },
                   undefined,
                   true,
                 );
@@ -333,127 +352,5 @@ export function ProfileReview({
         </>
       )}
     </>
-  );
-}
-export function ProfilePage() {
-  const { data, update, status } = useProfile();
-  const [deleting, setDeleting] = useState(false);
-  const navigate = useNavigate();
-  const edit = (step: Step) => {
-    update(
-      {
-        step,
-        visited: [
-          ...new Set([...(data?.profile.visited ?? []), "review" as const]),
-        ],
-      },
-      undefined,
-      true,
-    );
-    void navigate({ to: "/onboarding" });
-  };
-  const p = data?.profile;
-  return (
-    <section className="page-panel">
-      <header className="panel-header">
-        <h1>Your profile</h1>
-        <SaveStatus />
-      </header>
-      <div className="profile-page">
-        {!p ? (
-          <SaveStatus detailed />
-        ) : (
-          <>
-            <div className="onb-profile-heading">
-              <p className="onb-eyebrow">Your search, on your terms</p>
-              <h2>
-                {p.confirmedAt
-                  ? "A little clarity for your next move."
-                  : "Your next chapter starts here."}
-              </h2>
-              <p>
-                {p.confirmedAt
-                  ? "Your search preferences are saved. Revisit any part as your plans change."
-                  : "Set up your search profile. Your progress stays here between visits."}
-              </p>
-            </div>
-            {!p.confirmedAt && (
-              <Button className="onb-primary" onClick={() => edit(p.step)}>
-                {p.updatedAt ? "Resume setup" : "Set up your profile"}
-                <ArrowRight size={17} />
-              </Button>
-            )}
-            {p.confirmedAt && (
-              <div className="onb-next-step">
-                <span className="onb-done">
-                  <Check size={18} />
-                </span>
-                <div>
-                  <strong>
-                    {status === "saved"
-                      ? "Search profile saved locally"
-                      : "Saving your search profile"}
-                  </strong>
-                  <p>
-                    Discovery is not connected yet, so there’s no shortlist to
-                    show. Your profile is ready to revisit; no employer has
-                    received your information.
-                  </p>
-                  <Link to="/" className="onb-text">
-                    Open your workspace <ArrowRight size={14} />
-                  </Link>
-                </div>
-              </div>
-            )}
-            {(p.updatedAt || p.confirmedAt) && <ProfileReview onEdit={edit} />}
-            {status === "error" && <SaveStatus detailed />}
-            <div className="onb-local-note">
-              <HardDrive size={17} />
-              <p>
-                Stored only in this browser or desktop app on this device. Not
-                synced to other devices. Clearing app or browser data removes
-                it. Your CV and answers are not sent to a server.
-              </p>
-            </div>
-            <a
-              className="onb-text"
-              href={notices}
-              download="cv-reader-notices.txt"
-            >
-              CV reader license notices
-            </a>
-            <div className="onb-delete">
-              {deleting ? (
-                <>
-                  <p>
-                    Remove this local profile and its stored CV? Your source
-                    file outside the app won’t be changed.
-                  </p>
-                  <Button
-                    className="onb-text"
-                    onClick={() => {
-                      update(emptyProfile(), null, true);
-                      setDeleting(false);
-                    }}
-                  >
-                    Remove local profile
-                  </Button>
-                  <Button
-                    className="onb-text"
-                    onClick={() => setDeleting(false)}
-                  >
-                    Keep profile
-                  </Button>
-                </>
-              ) : (
-                <Button className="onb-text" onClick={() => setDeleting(true)}>
-                  <RotateCcw size={13} /> Clear local profile
-                </Button>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-    </section>
   );
 }

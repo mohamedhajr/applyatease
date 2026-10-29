@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import {
   goToContractPay,
   next,
-  skip,
   verifySalaryControls,
 } from "../../web/test/support/onboarding.ts";
 
@@ -81,7 +80,7 @@ try {
     .getByRole("link", { name: "Your profile", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "Set up your profile", exact: true })
+    .getByRole("link", { name: "Set up your profile", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "What’s your next move?" }),
@@ -102,7 +101,10 @@ try {
     await page
       .getByLabel("Choose your CV", { exact: true })
       .setInputFiles(file);
-    await page.getByRole("button", { name: "Review CV text" }).click();
+    await page.getByRole("button", { name: "Continue to CV insights" }).click();
+    await page
+      .getByText("View original and extracted text", { exact: true })
+      .click();
     await expect(page.getByLabel("Extracted CV text")).not.toBeEmpty();
     await page.getByRole("button", { name: "Back", exact: true }).click();
   }
@@ -116,7 +118,6 @@ try {
     .getByRole("textbox", { name: "Target amount — exact amount" })
     .fill("40000.125");
   await next(page);
-  await skip(page);
   await page.getByRole("button", { name: "Confirm search profile" }).click();
   await expect(
     page.getByRole("heading", { name: "Your next chapter starts here" }),
