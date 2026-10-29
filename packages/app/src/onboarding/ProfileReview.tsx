@@ -300,8 +300,8 @@ export function ProfileReview({
         <>
           <p className="onb-hint">
             Job discovery and assistant connection aren’t available yet. After
-            saving, you can review your profile and explore the workspace. No
-            search will run.
+            signing in, you can review your profile and explore the workspace.
+            No search will run.
           </p>
           {error && (
             <p role="alert" className="onb-error">
@@ -411,8 +411,8 @@ export function ProfilePage() {
               <HardDrive size={17} />
               <p>
                 Stored only in this browser or desktop app on this device. Not
-                synced to an account. Clearing app or browser data removes it.
-                Your CV and answers are not sent to a server.
+                synced to other devices. Clearing app or browser data removes
+                it. Your CV and answers are not sent to a server.
               </p>
             </div>
             <a

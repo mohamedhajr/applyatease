@@ -54,30 +54,36 @@ const failure = (error: unknown) =>
     message:
       error instanceof Error ? error.message : "Local storage is unavailable.",
   });
-export const loadProfile = Effect.tryPromise({
-  try: async () => {
-    const db = await openDatabase();
-    try {
-      const value = await new Promise<unknown>((resolve, reject) => {
-        const request = db
-          .transaction("profile")
-          .objectStore("profile")
-          .get("current");
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () =>
-          reject(new Error("Your profile could not be loaded."));
-      });
-      return decodeRecord(value);
-    } finally {
-      db.close();
-    }
-  },
-  catch: failure,
-});
+export const loadProfileFor = (key = "current") =>
+  Effect.tryPromise({
+    try: async () => {
+      const db = await openDatabase();
+      try {
+        const value = await new Promise<unknown>((resolve, reject) => {
+          const request = db
+            .transaction("profile")
+            .objectStore("profile")
+            .get(key);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () =>
+            reject(new Error("Your profile could not be loaded."));
+        });
+        return decodeRecord(value);
+      } finally {
+        db.close();
+      }
+    },
+    catch: failure,
+  });
+export const loadProfile = loadProfileFor();
+export const profileKey = (userId: string | undefined) =>
+  userId ? `user:${userId}` : "current";
+
 export const saveProfile = (
   profile: Profile,
   original: Blob | null,
   revision: number,
+  key = "current",
 ) =>
   Effect.tryPromise({
     try: async () => {
@@ -86,7 +92,7 @@ export const saveProfile = (
         await new Promise<void>((resolve, reject) => {
           const transaction = db.transaction("profile", "readwrite");
           const store = transaction.objectStore("profile");
-          const request = store.get("current");
+          const request = store.get(key);
           let conflict = false;
           request.onsuccess = () => {
             let current: LocalProfile;
@@ -101,7 +107,7 @@ export const saveProfile = (
               transaction.abort();
               return;
             }
-            store.put({ profile, original, revision: revision + 1 }, "current");
+            store.put({ profile, original, revision: revision + 1 }, key);
           };
           transaction.oncomplete = () => resolve();
           transaction.onabort = transaction.onerror = () =>
@@ -120,3 +126,55 @@ export const saveProfile = (
     },
     catch: failure,
   });
+
+export async function claimOnboardingProfile(
+  userId: string,
+  choice?: "new" | "saved",
+) {
+  const db = await openDatabase();
+  try {
+    return await new Promise<"saved" | "conflict">((resolve, reject) => {
+      const tx = db.transaction("profile", "readwrite");
+      const store = tx.objectStore("profile");
+      const draft = store.get("current");
+      const account = store.get(profileKey(userId));
+      let result: "saved" | "conflict" = "saved";
+      account.onsuccess = () => {
+        try {
+          if (draft.result === undefined) return;
+          const source = decodeRecord(draft.result);
+          if (!source.profile.confirmedAt) return;
+          if (account.result !== undefined && !choice) {
+            result = "conflict";
+            return;
+          }
+          const existing =
+            account.result === undefined
+              ? undefined
+              : decodeRecord(account.result);
+          if (choice !== "saved" || !existing)
+            store.put(
+              {
+                ...source,
+                revision:
+                  Math.max(source.revision, existing?.revision ?? 0) + 1,
+              },
+              profileKey(userId),
+            );
+          store.delete("current");
+        } catch {
+          tx.abort();
+        }
+      };
+      tx.oncomplete = () => resolve(result);
+      tx.onerror = tx.onabort = () =>
+        reject(
+          new Error(
+            "Your onboarding profile could not be linked. It is still saved on this device. Please retry.",
+          ),
+        );
+    });
+  } finally {
+    db.close();
+  }
+}

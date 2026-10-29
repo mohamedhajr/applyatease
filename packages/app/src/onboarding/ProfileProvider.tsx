@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { editProfile, type Profile } from "./model.ts";
-import { loadProfile, saveProfile, type LocalProfile } from "./storage.ts";
+import { loadProfileFor, saveProfile, type LocalProfile } from "./storage.ts";
 
 type ProfileContextValue = {
   data: LocalProfile | null;
@@ -16,7 +16,13 @@ type ProfileContextValue = {
   retry: () => void;
 };
 const ProfileContext = createContext<ProfileContextValue | null>(null);
-export function ProfileProvider({ children }: { children: ReactNode }) {
+export function ProfileProvider({
+  children,
+  storageKey = "current",
+}: {
+  children: ReactNode;
+  storageKey?: string;
+}) {
   const [data, setData] = useState<LocalProfile | null>(null);
   const [status, setStatus] =
     useState<ProfileContextValue["status"]>("loading");
@@ -29,22 +35,24 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const [retryCount, setRetryCount] = useState(0);
   useEffect(() => {
     let active = true;
-    void Effect.runPromise(Effect.result(loadProfile)).then((result) => {
-      if (!active) return;
-      if (result._tag === "Failure") {
-        setError(result.failure.message);
-        setStatus("error");
-        return;
-      }
-      revision.current = result.success.revision;
-      currentData.current = result.success;
-      setData(result.success);
-      setStatus("saved");
-    });
+    void Effect.runPromise(Effect.result(loadProfileFor(storageKey))).then(
+      (result) => {
+        if (!active) return;
+        if (result._tag === "Failure") {
+          setError(result.failure.message);
+          setStatus("error");
+          return;
+        }
+        revision.current = result.success.revision;
+        currentData.current = result.success;
+        setData(result.success);
+        setStatus("saved");
+      },
+    );
     return () => {
       active = false;
     };
-  }, [retryCount]);
+  }, [retryCount, storageKey]);
   function persist(next: LocalProfile) {
     const current = ++generation.current;
     setStatus("saving");
@@ -52,7 +60,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       if (failed.current || current !== generation.current) return;
       const result = await Effect.runPromise(
         Effect.result(
-          saveProfile(next.profile, next.original, revision.current),
+          saveProfile(
+            next.profile,
+            next.original,
+            revision.current,
+            storageKey,
+          ),
         ),
       );
       if (result._tag === "Failure") {

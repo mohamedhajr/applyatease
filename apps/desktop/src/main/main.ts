@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, net, protocol, session } from "electron";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isTrustedLocation, resolveAsset } from "./security.ts";
+import { setupAuthentication } from "./auth.ts";
 import { startWorker } from "./worker-client.ts";
 
 protocol.registerSchemesAsPrivileged([
@@ -14,6 +15,7 @@ protocol.registerSchemesAsPrivileged([
 const developmentUrl = app.isPackaged
   ? undefined
   : process.env.ELECTRON_RENDERER_URL;
+setupAuthentication(developmentUrl);
 let worker: ReturnType<typeof startWorker> | undefined;
 
 function createWindow() {

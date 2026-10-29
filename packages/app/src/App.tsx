@@ -1,4 +1,8 @@
-import { Button } from "@base-ui/react/button";
+import thirdPartyNotices from "../../../THIRD_PARTY_NOTICES.txt?url";
+import { Button } from "./components/ui/button.tsx";
+import { AuthProvider, useAuth } from "./auth/AuthProvider.tsx";
+import { SignIn } from "./auth/SignIn.tsx";
+import { profileKey } from "./onboarding/storage.ts";
 import type { DesktopBridge } from "@applyatease/contracts/desktop";
 import { Health } from "@applyatease/contracts/health";
 import {
@@ -13,6 +17,7 @@ import {
   createRoute,
   createRouter,
   Link,
+  Navigate,
   Outlet,
   RouterProvider,
   useRouterState,
@@ -29,10 +34,10 @@ import {
   Settings,
   Sprout,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Onboarding } from "./onboarding/Onboarding.tsx";
 import { ProfilePage } from "./onboarding/ProfileReview.tsx";
-import { ProfileProvider } from "./onboarding/ProfileProvider.tsx";
+import { ProfileProvider, useProfile } from "./onboarding/ProfileProvider.tsx";
 import { OpportunityWorkspace } from "./workspace/OpportunityWorkspace.tsx";
 
 type Platform =
@@ -77,6 +82,11 @@ const onboardingRoute = createRoute({
   path: "/onboarding",
   component: Onboarding,
 });
+const signInRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/sign-in",
+  component: SignIn,
+});
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/settings",
@@ -93,6 +103,7 @@ function makeRouter(context: AppContext) {
       applicationsRoute,
       profileRoute,
       onboardingRoute,
+      signInRoute,
       settingsRoute,
     ]),
     history:
@@ -123,10 +134,30 @@ export function App({
   );
   return (
     <QueryClientProvider client={queryClient}>
-      <ProfileProvider>
-        <RouterProvider router={router} />
-      </ProfileProvider>
+      <AuthProvider
+        apiBaseUrl={apiBaseUrl}
+        desktop={platform.kind === "desktop" ? platform.bridge : undefined}
+      >
+        <AccountProfile>
+          <RouterProvider router={router} />
+        </AccountProfile>
+      </AuthProvider>
     </QueryClientProvider>
+  );
+}
+function AccountProfile({ children }: { children: ReactNode }) {
+  const auth = useAuth();
+  if (auth.status === "loading")
+    return (
+      <div className="auth-loading" role="status">
+        Opening your workspace…
+      </div>
+    );
+  const key = profileKey(auth.user?.id);
+  return (
+    <ProfileProvider key={`${key}:${auth.profileRevision}`} storageKey={key}>
+      {children}
+    </ProfileProvider>
   );
 }
 const navigation = [
@@ -141,10 +172,24 @@ const views = [
 ] as const;
 function Shell() {
   const main = useRef<HTMLElement>(null);
+  const auth = useAuth();
+  const profile = useProfile();
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
+  if (pathname === "/sign-in") return <Outlet />;
+  if (auth.status === "error" && auth.user)
+    return (
+      <div className="auth-loading">
+        <p role="alert">Your session could not be verified.</p>
+        <Button onClick={() => void auth.refresh().catch(() => {})}>
+          Retry
+        </Button>
+      </div>
+    );
   if (pathname === "/onboarding") return <Outlet />;
+  if (!auth.user && profile.data?.profile.confirmedAt)
+    return <Navigate to="/sign-in" replace />;
   return (
     <div className="app-shell">
       <a
@@ -229,7 +274,8 @@ function Shell() {
           <div className="workspace-label">
             <span className="workspace-avatar">A</span>
             <span>
-              Personal workspace<small>Apply at Ease</small>
+              {auth.user?.name || "Personal workspace"}
+              <small>{auth.user?.email || "Apply at Ease"}</small>
             </span>
           </div>
         </div>
@@ -310,6 +356,7 @@ function Preferences() {
           <p className="lead">Your app and connection.</p>
         </div>
         <section className="settings-panel" aria-label="Application settings">
+          <AccountSettings />
           <div className="setting-row">
             <div>
               <h2>Application</h2>
@@ -333,12 +380,26 @@ function Preferences() {
               </p>
             </div>
             <Button
+              variant="outline"
               className="button"
               onClick={() => void connection.refetch()}
               disabled={connection.isFetching}
             >
               Retry connection
             </Button>
+          </div>
+          <div className="setting-row">
+            <div>
+              <h2>Open-source components</h2>
+              <p>Licenses for included interface components and fonts.</p>
+            </div>
+            <a
+              className="text-link"
+              href={thirdPartyNotices}
+              download="THIRD_PARTY_NOTICES.txt"
+            >
+              Third-party notices
+            </a>
           </div>
           {runtime.isError && (
             <p role="alert" className="runtime-error">
@@ -348,5 +409,46 @@ function Preferences() {
         </section>
       </div>
     </section>
+  );
+}
+
+function AccountSettings() {
+  const auth = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  return (
+    <div className="setting-row">
+      <div>
+        <h2>Account</h2>
+        <p>
+          {auth.user
+            ? auth.user.email
+            : "Sign in after completing your profile."}
+        </p>
+        {error && <p role="alert">{error}</p>}
+      </div>
+      {auth.user ? (
+        <Button
+          variant="outline"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            setError("");
+            void auth
+              .signOut()
+              .catch(() =>
+                setError("Sign-out could not be completed. Please retry."),
+              )
+              .finally(() => setBusy(false));
+          }}
+        >
+          {busy ? "Signing out…" : "Sign out"}
+        </Button>
+      ) : (
+        <Link to="/onboarding" className="button">
+          Set up your profile
+        </Link>
+      )}
+    </div>
   );
 }

@@ -115,21 +115,14 @@ test("focused questions resume, branch and remain individually editable", async 
     .getByRole("button", { name: "Back to review", exact: true })
     .click();
   await page.getByRole("button", { name: "Confirm search profile" }).click();
-  await expect(page.getByText("Search profile saved locally")).toBeVisible();
-  await page.reload();
-  await expect(page.getByText("Search profile saved locally")).toBeVisible();
-  await page.getByRole("link", { name: "Open your workspace" }).click();
+  await expect(page).toHaveURL(/\/sign-in$/);
   await expect(
-    page.getByRole("region", { name: "Job opportunities" }),
+    page.getByRole("heading", { name: "Your next chapter starts here" }),
   ).toBeVisible();
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("link", { name: "Your profile", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Clear local profile" }).click();
-  await page.getByRole("button", { name: "Remove local profile" }).click();
+  await page.reload();
+  await page.getByRole("link", { name: "Back to your profile" }).click();
   await expect(
-    page.getByRole("button", { name: "Set up your profile" }),
+    page.getByRole("heading", { name: "Your next chapter, in focus." }),
   ).toBeVisible();
 });
 
@@ -207,7 +200,7 @@ test("salary slider preserves exact amounts, validates targets and retains defer
     .getByRole("button", { name: "Back to review", exact: true })
     .click();
   await page.getByRole("button", { name: "Confirm search profile" }).click();
-  await expect(page.getByText("Search profile saved locally")).toBeVisible();
+  await expect(page).toHaveURL(/\/sign-in$/);
 });
 
 test("employment and contract pay remain separate when arrangements change", async ({

@@ -8,7 +8,7 @@ A web and desktop job-search assistant designed to help you:
 - Review and approve each application before submission.
 - Track saved jobs, application materials, progress and next steps.
 
-Early development: web and desktop share an opportunity workspace with an agent conversation area, match details and application review panels. Guided onboarding saves an editable search profile locally and reads text from English PDF/DOCX CVs without uploading them. Sign-in, structured career analysis, tailoring, job discovery, agent chat and application workflows are not connected yet.
+Early development: web and desktop share an opportunity workspace with an agent conversation area, match details and application review panels. Guided onboarding saves an editable search profile locally and reads text from English PDF/DOCX CVs without uploading them. Email-code, Google and Apple sign-in follow onboarding when their providers are configured. Structured career analysis, tailoring, job discovery, agent chat and application workflows are not connected yet.
 
 ## Run locally
 
@@ -46,4 +46,18 @@ PDF and DOCX text is extracted locally. Review it against the original; column o
 
 The profile, source text and original file are stored in IndexedDB for this browser origin or desktop app, without account sync. They are not encrypted by the app. Use **Clear local profile** to remove them; clearing browser/app data also removes them. Storage failures are shown without claiming a successful save. Concurrent edits from another window require reloading the saved version.
 
-The illustrations are original assets generated during development, selected contextually for the onboarding steps. They are not generated per user at runtime. Discovery is not connected; completing setup shows this gap and opens the existing workspace without running a search.
+Completing setup leads to sign-in, then your profile. It does not run a job search.
+
+## Sign-in configuration
+
+Configure methods in the API environment; unavailable methods stay disabled:
+
+- **Email code:** `RESEND_API_KEY` and `AUTH_EMAIL_FROM` using a verified sending domain. Codes expire after five minutes and allow five verification attempts; requests are rate limited.
+- **Google:** `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. Register `AUTH_URL/api/auth/callback/google` as a redirect URI.
+- **Apple:** `APPLE_CLIENT_ID` (Services ID) and `APPLE_CLIENT_SECRET` (signed client-secret JWT). Register `AUTH_URL/api/auth/callback/apple` using an HTTPS domain. Renew the client secret before it expires; Apple does not support localhost return URLs.
+
+`AUTH_URL` is the API origin. Serve web `/api` requests through a same-origin proxy to the API and include the web origin in `APP_ORIGINS`. Keep provider secrets on the server.
+
+Desktop sign-in opens the system browser and returns via `com.applyatease.app`. For a non-local installation, set `AUTH_URL` and `APP_WEB_URL` in the desktop process environment; both require HTTPS outside localhost. Packaged installers register the callback scheme.
+
+After sign-in, the completed draft is associated with that account on this device. An existing local account profile requires an explicit choice before replacement. Signing out hides the account’s local profile; it does not erase it or synchronize it to another device. Local profiles remain unencrypted in IndexedDB. Desktop session credentials use the operating system’s encrypted storage when available and remain in memory otherwise.

@@ -1,3 +1,4 @@
+import type { AuthCapabilities, AuthUser } from "./auth.ts";
 import { Schema } from "effect";
 
 export const DesktopRuntime = Schema.Struct({
@@ -17,5 +18,10 @@ export const WorkerResponse = Schema.Struct({
 });
 
 export interface DesktopBridge {
+  readonly getAuthCapabilities: () => Promise<AuthCapabilities>;
+  readonly getAuthUser: () => Promise<AuthUser | null>;
+  readonly requestAuth: () => Promise<void>;
+  readonly signOut: () => Promise<void>;
+  readonly onAuthChanged: (callback: (error?: string) => void) => () => void;
   readonly getRuntime: () => Promise<DesktopRuntime>;
 }

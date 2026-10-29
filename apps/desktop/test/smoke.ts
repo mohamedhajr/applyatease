@@ -59,7 +59,14 @@ try {
   }));
   expect(boundary.hasRequire).toBe(false);
   expect(boundary.hasProcess).toBe(false);
-  expect(boundary.methods).toEqual(["getRuntime"]);
+  expect(boundary.methods.sort()).toEqual([
+    "getAuthCapabilities",
+    "getAuthUser",
+    "getRuntime",
+    "onAuthChanged",
+    "requestAuth",
+    "signOut",
+  ]);
   expect(boundary.runtime.platform).toBe(process.platform);
   expect(boundary.runtime.node).toMatch(/^24\./);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
@@ -111,7 +118,9 @@ try {
   await next(page);
   await skip(page);
   await page.getByRole("button", { name: "Confirm search profile" }).click();
-  await expect(page.getByText("Search profile saved locally")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Your next chapter starts here" }),
+  ).toBeVisible();
   expect(errors).toEqual([]);
   console.log(
     "Desktop startup, navigation, isolation, document worker, focused onboarding, exact salary synchronization and resume passed",

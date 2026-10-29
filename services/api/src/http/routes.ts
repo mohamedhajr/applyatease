@@ -1,4 +1,4 @@
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Redacted } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import { SqlClient } from "effect/sql";
 import { Auth } from "../auth/service.ts";
@@ -20,6 +20,17 @@ const ready = Effect.gen(function* () {
 const authentication = Effect.gen(function* () {
   const auth = yield* Auth;
   const request = yield* HttpServerRequest.HttpServerRequest;
+  if (
+    request.method !== "GET" &&
+    request.method !== "OPTIONS" &&
+    (!request.headers.origin ||
+      !auth.options.trustedOrigins.includes(request.headers.origin))
+  ) {
+    return HttpServerResponse.jsonUnsafe(
+      { error: "untrusted_origin" },
+      { status: 403 },
+    );
+  }
   const web = yield* HttpServerRequest.toWeb(request);
   const response = yield* Effect.tryPromise(() => auth.handler(web));
   return HttpServerResponse.fromWeb(response);
@@ -34,15 +45,45 @@ const session = Effect.gen(function* () {
   if (!current)
     return HttpServerResponse.jsonUnsafe(
       { error: "unauthorized" },
-      { status: 401 },
+      { status: 401, headers: { "cache-control": "no-store" } },
     );
   return HttpServerResponse.jsonUnsafe(
-    { user: { id: current.user.id, name: current.user.name } },
+    {
+      user: {
+        id: current.user.id,
+        name: current.user.name,
+        email: current.user.email,
+      },
+    },
     { headers: { "cache-control": "no-store" } },
   );
 }).pipe(Effect.orElseSucceed(() => unavailable));
 
 export const Routes = Layer.mergeAll(
+  Layer.unwrap(
+    Effect.gen(function* () {
+      const config = yield* AppConfig;
+      return HttpRouter.add(
+        "GET",
+        "/api/auth-options",
+        HttpServerResponse.jsonUnsafe(
+          {
+            email: Boolean(
+              Redacted.value(config.resendKey) && config.emailFrom,
+            ),
+            google: Boolean(
+              config.googleClientId &&
+              Redacted.value(config.googleClientSecret),
+            ),
+            apple: Boolean(
+              config.appleClientId && Redacted.value(config.appleClientSecret),
+            ),
+          },
+          { headers: { "cache-control": "no-store" } },
+        ),
+      );
+    }),
+  ),
   HttpRouter.add(
     "GET",
     "/api/health/live",

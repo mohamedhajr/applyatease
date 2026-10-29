@@ -1,4 +1,4 @@
-import { Config, Context, Layer, Schema } from "effect";
+import { Config, Context, Layer, Redacted, Schema } from "effect";
 
 const configuration = Config.all({
   host: Config.String("API_HOST").pipe(Config.withDefault("127.0.0.1")),
@@ -9,6 +9,20 @@ const configuration = Config.all({
     "AUTH_SECRET",
   ),
   authUrl: Config.URL("AUTH_URL"),
+  googleClientId: Config.String("GOOGLE_CLIENT_ID").pipe(
+    Config.withDefault(""),
+  ),
+  googleClientSecret: Config.Redacted("GOOGLE_CLIENT_SECRET").pipe(
+    Config.withDefault(Redacted.make("")),
+  ),
+  appleClientId: Config.String("APPLE_CLIENT_ID").pipe(Config.withDefault("")),
+  appleClientSecret: Config.Redacted("APPLE_CLIENT_SECRET").pipe(
+    Config.withDefault(Redacted.make("")),
+  ),
+  resendKey: Config.Redacted("RESEND_API_KEY").pipe(
+    Config.withDefault(Redacted.make("")),
+  ),
+  emailFrom: Config.String("AUTH_EMAIL_FROM").pipe(Config.withDefault("")),
   origins: Config.NonEmptyString("APP_ORIGINS").pipe(
     Config.map((value) => value.split(",").map((origin) => origin.trim())),
   ),

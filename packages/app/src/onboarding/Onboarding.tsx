@@ -1,4 +1,5 @@
-import { Button } from "@base-ui/react/button";
+import { Button } from "../components/ui/button.tsx";
+import { useAuth } from "../auth/AuthProvider.tsx";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -23,6 +24,7 @@ export function Onboarding() {
   const [pending, setPending] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const navigate = useNavigate();
+  const auth = useAuth();
   const p = data?.profile;
   const steps = p ? stepsFor(p) : [];
   const fallback: Step = p?.step.startsWith("level:")
@@ -147,6 +149,7 @@ export function Onboarding() {
         <main className={`onb-main ${step === "review" ? "onb-wide" : ""}`}>
           <div className="onb-question-meta">
             <Button
+              variant="ghost"
               className="onb-back"
               disabled={index <= 0 || busy}
               onClick={() => {
@@ -158,6 +161,7 @@ export function Onboarding() {
             </Button>
             {p.visited.includes("review") && step !== "review" ? (
               <Button
+                variant="ghost"
                 className="onb-text"
                 disabled={busy}
                 onClick={() => go("review")}
@@ -187,7 +191,11 @@ export function Onboarding() {
             {step === "review" ? (
               <ProfileReview
                 onEdit={go}
-                onFinish={() => void navigate({ to: "/profile" })}
+                onFinish={() => {
+                  if (!auth.user)
+                    sessionStorage.setItem("applyatease.claim-profile", "true");
+                  void navigate({ to: auth.user ? "/profile" : "/sign-in" });
+                }}
               />
             ) : (
               <form
@@ -214,7 +222,12 @@ export function Onboarding() {
                   </p>
                 )}
                 <div className="onb-actions">
-                  <Button type="submit" className="onb-primary" disabled={busy}>
+                  <Button
+                    variant="ghost"
+                    type="submit"
+                    className="onb-primary"
+                    disabled={busy}
+                  >
                     {busy
                       ? "Reading your document…"
                       : step === "cv" && p.cv
@@ -224,6 +237,7 @@ export function Onboarding() {
                   </Button>
                   {step !== "roles" && !interlude && (
                     <Button
+                      variant="ghost"
                       type="button"
                       className="onb-skip"
                       disabled={busy}

@@ -32,6 +32,7 @@ await connect(
         ".gitignore",
         ".node-version",
         "README.md",
+        "THIRD_PARTY_NOTICES.txt",
       ],
       exclude: [
         "**/node_modules",

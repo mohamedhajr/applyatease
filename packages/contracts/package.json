@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     "./health": "./src/health.ts",
-    "./desktop": "./src/desktop.ts"
+    "./desktop": "./src/desktop.ts",
+    "./auth": "./src/auth.ts"
   },
   "dependencies": {
     "effect": "4.0.7"

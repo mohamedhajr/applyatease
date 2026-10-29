@@ -5,6 +5,10 @@ directories:
 files:
   - out/**/*
   - package.json
+protocols:
+  - name: Apply at Ease sign-in
+    schemes:
+      - com.applyatease.app
 asar: true
 npmRebuild: false
 mac:
