@@ -122,6 +122,37 @@ try {
   await expect(
     page.getByRole("heading", { name: "Your next chapter starts here" }),
   ).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const db = await new Promise<IDBDatabase>((resolve, reject) => {
+          const request = indexedDB.open("applyatease-profile", 1);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = reject;
+        });
+        try {
+          return await new Promise<boolean>((resolve, reject) => {
+            const request = db
+              .transaction("profile")
+              .objectStore("profile")
+              .get("current");
+            request.onsuccess = () => {
+              const record = request.result as
+                { profile: { confirmedAt: string } } | undefined;
+              resolve(Boolean(record?.profile.confirmedAt));
+            };
+            request.onerror = reject;
+          });
+        } finally {
+          db.close();
+        }
+      }),
+    )
+    .toBe(true);
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Your next chapter starts here" }),
+  ).toBeVisible();
   expect(errors).toEqual([]);
   console.log(
     "Desktop startup, navigation, isolation, document worker, focused onboarding, exact salary synchronization and resume passed",
