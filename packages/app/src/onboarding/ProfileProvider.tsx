@@ -125,7 +125,6 @@ export function ProfileProvider({
       }
     });
   }
-  // A current ref prevents multiple field updates in one event from losing each other.
   const update: ProfileContextValue["update"] = (
     patch,
     original,
@@ -227,7 +226,7 @@ export function ProfileProvider({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(source),
-        signal: AbortSignal.timeout(190000),
+        signal: AbortSignal.timeout(370000),
       });
       const value: unknown = await response.json().catch(() => null);
       if (!response.ok)

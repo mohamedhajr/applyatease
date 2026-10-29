@@ -7,7 +7,8 @@
     "./health": "./src/health.ts",
     "./desktop": "./src/desktop.ts",
     "./career": "./src/career.ts",
-    "./auth": "./src/auth.ts"
+    "./auth": "./src/auth.ts",
+    "./workflow": "./src/workflow.ts"
   },
   "dependencies": {
     "effect": "4.0.7"

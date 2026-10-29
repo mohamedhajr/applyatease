@@ -15,7 +15,11 @@ test("uses the opportunity workspace and keeps review separate from approval", a
     name: "Opportunity details",
   });
   await expect(details).toBeVisible();
-  await expect(page.getByLabel("Match score not assessed")).toBeVisible();
+  await expect(
+    page.getByText(
+      "Evidence and eligibility are assessed separately against your profile and the full job requirements.",
+    ),
+  ).toBeVisible();
   await page.getByText("Eligibility", { exact: true }).click();
   await expect(
     page.getByText("Work authorization", { exact: true }),
@@ -54,15 +58,11 @@ test("uses the opportunity workspace and keeps review separate from approval", a
     page.getByRole("tab", { name: "Review", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
 
-  await page.getByRole("button", { name: "Understand my match" }).click();
   await expect(
-    page.getByRole("textbox", { name: "Message draft" }),
-  ).toBeFocused();
+    page.getByRole("button", { name: "Create search plan", exact: true }),
+  ).toBeDisabled();
   await expect(
-    page.getByRole("textbox", { name: "Message draft" }),
-  ).toHaveValue(/my experience matches this opportunity/);
-  await expect(
-    page.getByRole("button", { name: "Send message — agent not connected" }),
+    page.getByRole("button", { name: "Inspect & import posting", exact: true }),
   ).toBeDisabled();
 
   await page
@@ -114,8 +114,8 @@ for (const width of [1440, 1180, 1024, 768, 390, 320]) {
     if (width <= 1000) {
       await switcher.getByRole("button", { name: "Chat", exact: true }).click();
       await page
-        .getByRole("textbox", { name: "Message draft" })
-        .fill("Review the requirements with me.");
+        .getByRole("textbox", { name: "Employer posting URL" })
+        .fill("https://example.com/");
       await switcher
         .getByRole("button", { name: "Details", exact: true })
         .click();
@@ -130,8 +130,8 @@ for (const width of [1440, 1180, 1024, 768, 390, 320]) {
         .getByRole("button", { name: "Close opportunity details" })
         .click();
       await expect(
-        page.getByRole("textbox", { name: "Message draft" }),
-      ).toHaveValue("Review the requirements with me.");
+        page.getByRole("textbox", { name: "Employer posting URL" }),
+      ).toHaveValue("https://example.com/");
       await expect(
         page.getByRole("heading", { name: "Career agent", exact: true }),
       ).toBeFocused();

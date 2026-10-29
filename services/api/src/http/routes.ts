@@ -3,6 +3,7 @@ import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import { SqlClient } from "effect/sql";
 import { Auth } from "../auth/service.ts";
 import { AnalysisRoutes } from "../analysis/routes.ts";
+import { WorkflowRoutes } from "../workflow/routes.ts";
 import { AppConfig } from "../config.ts";
 
 const unavailable = HttpServerResponse.jsonUnsafe(
@@ -62,6 +63,7 @@ const session = Effect.gen(function* () {
 
 export const Routes = Layer.mergeAll(
   AnalysisRoutes,
+  WorkflowRoutes,
   Layer.unwrap(
     Effect.gen(function* () {
       const config = yield* AppConfig;

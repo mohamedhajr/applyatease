@@ -27,7 +27,6 @@ import {
   Archive,
   Bookmark,
   BriefcaseBusiness,
-  ChevronRight,
   FileText,
   Flag,
   Inbox,
@@ -39,6 +38,11 @@ import { Onboarding } from "./onboarding/Onboarding.tsx";
 import { ProfilePage } from "./profile/ProfilePage.tsx";
 import { ProfileProvider, useProfile } from "./onboarding/ProfileProvider.tsx";
 import { OpportunityWorkspace } from "./workspace/OpportunityWorkspace.tsx";
+import { WorkflowProvider } from "./workspace/WorkflowProvider.tsx";
+import {
+  ResearchSession,
+  useWorkspaceSession,
+} from "./workspace/ResearchSession.tsx";
 
 type Platform =
   | { readonly kind: "web" }
@@ -155,8 +159,27 @@ function AccountProfile({ children }: { children: ReactNode }) {
     );
   const key = profileKey(auth.user?.id);
   return (
-    <ProfileProvider key={`${key}:${auth.profileRevision}`} storageKey={key}>
-      {children}
+    <ResearchSession personalKey={key}>
+      <SelectedProfile revision={auth.profileRevision}>
+        {children}
+      </SelectedProfile>
+    </ResearchSession>
+  );
+}
+function SelectedProfile({
+  children,
+  revision,
+}: {
+  children: ReactNode;
+  revision: number;
+}) {
+  const session = useWorkspaceSession();
+  return (
+    <ProfileProvider
+      key={`${session.key}:${revision}`}
+      storageKey={session.key}
+    >
+      <WorkflowProvider>{children}</WorkflowProvider>
     </ProfileProvider>
   );
 }
@@ -174,9 +197,15 @@ function Shell() {
   const main = useRef<HTMLElement>(null);
   const auth = useAuth();
   const profile = useProfile();
+  const session = useWorkspaceSession();
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
+  if (
+    session.researchOnly &&
+    ["/profile", "/onboarding", "/sign-in"].includes(pathname)
+  )
+    return <Navigate to="/" replace />;
   if (pathname === "/sign-in") return <Outlet />;
   if (auth.status === "error" && auth.user)
     return (
@@ -188,20 +217,10 @@ function Shell() {
       </div>
     );
   if (pathname === "/onboarding") return <Outlet />;
-  if (!auth.user && profile.data?.profile.confirmedAt)
+  if (!session.researchOnly && !auth.user && profile.data?.profile.confirmedAt)
     return <Navigate to="/sign-in" replace />;
   return (
     <div className="app-shell">
-      <a
-        className="skip-link"
-        href="#main"
-        onClick={(event) => {
-          event.preventDefault();
-          main.current?.focus();
-        }}
-      >
-        Skip to content
-      </a>
       <aside className="sidebar" aria-label="Workspace navigation">
         <Link to="/" className="brand" aria-label="Apply at Ease home">
           <span className="brand-mark">
@@ -213,23 +232,25 @@ function Shell() {
         </Link>
         <nav aria-label="Main navigation">
           <p className="nav-caption">Workspace</p>
-          {navigation.map(({ to, label, icon: Icon }) => (
-            <Link
-              key={to}
-              to={to}
-              title={label}
-              aria-label={label}
-              className="nav-link"
-              activeProps={{
-                className: "nav-link is-active",
-                "aria-current": "page",
-              }}
-              activeOptions={{ exact: true }}
-            >
-              <Icon size={17} aria-hidden="true" />
-              <span>{label}</span>
-            </Link>
-          ))}
+          {navigation
+            .filter(({ to }) => !session.researchOnly || to !== "/profile")
+            .map(({ to, label, icon: Icon }) => (
+              <Link
+                key={to}
+                to={to}
+                title={label}
+                aria-label={label}
+                className="nav-link"
+                activeProps={{
+                  className: "nav-link is-active",
+                  "aria-current": "page",
+                }}
+                activeOptions={{ exact: true }}
+              >
+                <Icon size={17} aria-hidden="true" />
+                <span>{label}</span>
+              </Link>
+            ))}
         </nav>
         <nav className="saved-views" aria-label="Opportunity views">
           <p className="nav-caption">Views</p>
@@ -286,47 +307,8 @@ function Shell() {
     </div>
   );
 }
-function EmptyPage({
-  title,
-  description,
-  message,
-  detail,
-}: {
-  title: string;
-  description: string;
-  message: string;
-  detail: string;
-}) {
-  return (
-    <section className="page-panel">
-      <header className="panel-header">
-        <h1>{title}</h1>
-      </header>
-      <div className="page">
-        <p className="lead">{description}</p>
-        <div className="empty-state">
-          <span className="empty-symbol">
-            <FileText size={24} aria-hidden="true" />
-          </span>
-          <h2>{message}</h2>
-          <p>{detail}</p>
-          <Link to="/" className="text-link">
-            Back to opportunities <ChevronRight size={15} aria-hidden="true" />
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
 function Applications() {
-  return (
-    <EmptyPage
-      title="Applications"
-      description="Your materials, reviews and progress, in one place."
-      message="Your applications start here"
-      detail="Application preparation and tracking will be available here. Nothing has been submitted."
-    />
-  );
+  return <OpportunityWorkspace view="review" />;
 }
 function Preferences() {
   const { platform, apiBaseUrl } = rootRoute.useRouteContext();

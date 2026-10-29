@@ -14,6 +14,9 @@ import { Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { AgentConversation } from "./AgentConversation.tsx";
 import { OpportunityDetails } from "./OpportunityDetails.tsx";
+import { useWorkflow } from "./WorkflowProvider.tsx";
+import { needsReview, sourceHost } from "./model.ts";
+import "./workspace.css";
 
 const views = {
   all: {
@@ -51,6 +54,32 @@ export function OpportunityWorkspace({ view }: { view: keyof typeof views }) {
   const [status, setStatus] = useState("all");
   const [sort, setSort] = useState("recent");
   const current = views[view];
+  const workflow = useWorkflow();
+  const jobs = workflow.data.opportunities
+    .filter((job) => {
+      if (view === "saved" && job.disposition !== "saved") return false;
+      if (
+        view === "archived"
+          ? job.disposition !== "dismissed"
+          : job.disposition === "dismissed"
+      )
+        return false;
+      if ((view === "review" || status === "review") && !needsReview(job))
+        return false;
+      if (status === "unassessed" && job.assessment) return false;
+      const text =
+        `${job.assessment?.result.title ?? ""} ${job.assessment?.result.employer ?? ""} ${job.source.canonicalUrl} ${job.notes}`.toLowerCase();
+      return text.includes(query.toLowerCase());
+    })
+    .sort((a, b) =>
+      sort === "company"
+        ? (
+            a.assessment?.result.employer ?? a.source.canonicalUrl
+          ).localeCompare(
+            b.assessment?.result.employer ?? b.source.canonicalUrl,
+          )
+        : b.updatedAt.localeCompare(a.updatedAt),
+    );
   function showDetails() {
     setDetailsVisible(true);
     setActivePanel("details");
@@ -97,7 +126,7 @@ export function OpportunityWorkspace({ view }: { view: keyof typeof views }) {
       >
         <header className="panel-header">
           <h1>{current.title}</h1>
-          <span className="count-badge">0</span>
+          <span className="count-badge">{jobs.length}</span>
           <Button
             className="icon-button header-end"
             aria-label="Filter opportunities"
@@ -145,7 +174,6 @@ export function OpportunityWorkspace({ view }: { view: keyof typeof views }) {
               >
                 <option value="recent">Recent</option>
                 <option value="company">Company</option>
-                <option value="score">Match score</option>
               </select>
             </label>
           </div>
@@ -174,41 +202,86 @@ export function OpportunityWorkspace({ view }: { view: keyof typeof views }) {
             </Button>
           </div>
         )}
-        <div className="list-empty" role="status">
-          <span className="empty-symbol">
-            <Inbox size={24} strokeWidth={1.5} aria-hidden="true" />
-          </span>
-          <h2>
-            {query
-              ? "No matching opportunities"
-              : status !== "all"
-                ? "No opportunities in this view"
-                : current.empty}
-          </h2>
-          <p>
-            {query
-              ? "Try a different search or clear your filters."
-              : current.description}
-          </p>
-          {query || status !== "all" ? (
-            <Button
-              className="text-button"
-              onClick={() => {
-                setQuery("");
-                setStatus("all");
-              }}
-            >
-              Clear filters
-            </Button>
-          ) : (
-            <Link to="/profile" className="text-link">
-              Your profile <ArrowUpRight size={14} aria-hidden="true" />
-            </Link>
-          )}
-        </div>
+        {jobs.length > 0 ? (
+          <div
+            className="workflow-job-list"
+            aria-label="Imported opportunities"
+          >
+            {jobs.map((job) => (
+              <button
+                type="button"
+                key={job.id}
+                className="workflow-job"
+                aria-pressed={workflow.data.selectedId === job.id}
+                onClick={() => {
+                  workflow.select(job.id);
+                  setActivePanel("conversation");
+                }}
+              >
+                <strong>
+                  {job.assessment?.result.title || "Imported opportunity"}
+                </strong>
+                <span>
+                  {job.assessment?.result.employer ||
+                    sourceHost(job.source.canonicalUrl)}
+                </span>
+                <span className="workflow-job-badges">
+                  <span className="neutral-badge">{job.disposition}</span>
+                  <span className="neutral-badge">{job.source.status}</span>
+                </span>
+                {job.assessment && (
+                  <span>
+                    {job.assessment.result.verdict.replaceAll("_", " ")}
+                  </span>
+                )}
+                {job.assessment?.result.dimensions.some(
+                  (item) => item.result === "incompatible",
+                ) && (
+                  <span className="workflow-warning">
+                    Eligibility or preference blocker
+                  </span>
+                )}
+                {job.preparation && <span>Local package awaiting review</span>}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="list-empty" role="status">
+            <span className="empty-symbol">
+              <Inbox size={24} strokeWidth={1.5} aria-hidden="true" />
+            </span>
+            <h2>
+              {query
+                ? "No matching opportunities"
+                : status !== "all"
+                  ? "No opportunities in this view"
+                  : current.empty}
+            </h2>
+            <p>
+              {query
+                ? "Try a different search or clear your filters."
+                : current.description}
+            </p>
+            {query || status !== "all" ? (
+              <Button
+                className="text-button"
+                onClick={() => {
+                  setQuery("");
+                  setStatus("all");
+                }}
+              >
+                Clear filters
+              </Button>
+            ) : (
+              <Link to="/profile" className="text-link">
+                Your profile <ArrowUpRight size={14} aria-hidden="true" />
+              </Link>
+            )}
+          </div>
+        )}
         <div className="list-footer">
           <Bookmark size={14} aria-hidden="true" />
-          <span>Job discovery and import are coming next.</span>
+          <span>Sources, evidence and local preparation.</span>
         </div>
       </section>
       <AgentConversation

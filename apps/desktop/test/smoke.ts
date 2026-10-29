@@ -31,7 +31,7 @@ try {
   page.on("pageerror", (error) => errors.push(error.message));
   await expect(
     page.getByRole("heading", {
-      name: /Every opportunity/,
+      name: "Find your next opportunity",
     }),
   ).toBeVisible();
   await page.keyboard.press("Tab");
@@ -124,7 +124,12 @@ try {
   ).toBeVisible();
   expect(errors).toEqual([]);
   console.log(
-    "Desktop startup, navigation, isolation, document worker, focused onboarding, exact salary synchronization and resume passed",
+    "Desktop startup, navigation, isolation, focused onboarding, exact salary synchronization and resume passed",
+  );
+  console.log(
+    process.env.APPLYATEASE_TEST_PDF || process.env.APPLYATEASE_TEST_DOCX
+      ? "Supplied real document import checks passed"
+      : "Document import checks skipped: no source supplied",
   );
 } finally {
   await application.close();

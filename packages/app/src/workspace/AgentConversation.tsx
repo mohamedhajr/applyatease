@@ -1,37 +1,8 @@
-import { Link } from "@tanstack/react-router";
-import { useProfile } from "../onboarding/ProfileProvider.tsx";
 import { Button } from "@base-ui/react/button";
-import {
-  ArrowUp,
-  FileSearch,
-  Flag,
-  MessageSquare,
-  PanelRight,
-  PanelRightClose,
-  PencilLine,
-  Sprout,
-  TextSearch,
-} from "lucide-react";
-import { useRef, useState } from "react";
+import { PanelRight, PanelRightClose, Sprout } from "lucide-react";
 import type { Ref } from "react";
-
-const suggestions = [
-  {
-    label: "Understand my match",
-    text: "Help me understand how my experience matches this opportunity.",
-    icon: TextSearch,
-  },
-  {
-    label: "Prepare my application",
-    text: "Help me review the requirements and prepare an application for this opportunity.",
-    icon: FileSearch,
-  },
-  {
-    label: "Review flagged questions",
-    text: "Help me review the questions that need my confirmation before applying.",
-    icon: Flag,
-  },
-];
+import { WorkflowActions } from "./WorkflowActions.tsx";
+import { useWorkflow } from "./WorkflowProvider.tsx";
 
 export function AgentConversation({
   headingRef,
@@ -44,9 +15,10 @@ export function AgentConversation({
   onHideDetails: () => void;
   detailsVisible: boolean;
 }) {
-  const [draft, setDraft] = useState("");
-  const { data } = useProfile();
-  const input = useRef<HTMLTextAreaElement>(null);
+  const workflow = useWorkflow();
+  const job = workflow.data.opportunities.find(
+    (item) => item.id === workflow.data.selectedId,
+  );
   return (
     <section className="conversation panel" aria-label="Agent conversation">
       <header className="panel-header conversation-header">
@@ -57,9 +29,12 @@ export function AgentConversation({
           <h2 ref={headingRef} tabIndex={-1}>
             Career agent
           </h2>
-          <p>No opportunity selected</p>
+          <p>
+            {job?.assessment?.result.title ||
+              (job ? "Imported opportunity" : "Search, inspect and prepare")}
+          </p>
         </div>
-        <span className="context-label">Your workspace</span>
+        <span className="context-label">Local workspace</span>
         <Button
           className="icon-button details-toggle"
           aria-label={
@@ -80,91 +55,7 @@ export function AgentConversation({
         </Button>
       </header>
       <div className="conversation-body">
-        <div className="conversation-empty">
-          <span className="agent-emblem">
-            <Sprout size={30} strokeWidth={1.6} aria-hidden="true" />
-          </span>
-          <p className="section-kicker">A little clarity for your next move</p>
-          <h2>
-            Every opportunity.
-            <br />
-            One conversation.
-          </h2>
-          <p>
-            Bring the role, your experience and the next steps together. This is
-            where you’ll work through each opportunity with your agent.
-          </p>
-          <Link
-            className="onb-workspace-link"
-            to={data?.profile.confirmedAt ? "/profile" : "/onboarding"}
-          >
-            {data?.profile.confirmedAt
-              ? "View your search profile"
-              : data?.profile.updatedAt
-                ? "Resume your setup"
-                : "Set up your search profile"}{" "}
-            <span aria-hidden="true">→</span>
-          </Link>
-          <div
-            className="conversation-suggestions"
-            aria-label="Draft a message"
-          >
-            {suggestions.map(({ label, text, icon: Icon }) => (
-              <Button
-                key={label}
-                onClick={() => {
-                  setDraft(text);
-                  input.current?.focus();
-                }}
-              >
-                <Icon size={17} aria-hidden="true" />
-                <span>{label}</span>
-                <span className="suggestion-arrow" aria-hidden="true">
-                  ↗
-                </span>
-              </Button>
-            ))}
-          </div>
-        </div>
-      </div>
-      <div className="composer-area">
-        <div className="composer">
-          <div className="composer-heading">
-            <span>
-              <MessageSquare size={15} aria-hidden="true" />
-              Message agent
-            </span>
-            <span className="draft-label">
-              <PencilLine size={12} aria-hidden="true" />
-              Draft
-            </span>
-          </div>
-          <textarea
-            ref={input}
-            aria-label="Message draft"
-            aria-describedby="agent-availability"
-            placeholder="Ask about a role, your match or the next step…"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-          />
-          <div className="composer-footer">
-            <span className="composer-context">
-              <Sprout size={14} aria-hidden="true" />
-              Career agent
-            </span>
-            <Button
-              className="send-button"
-              aria-label="Send message — agent not connected"
-              disabled
-            >
-              <ArrowUp size={18} />
-            </Button>
-          </div>
-        </div>
-        <p id="agent-availability" className="composer-notice">
-          Agent chat isn’t connected yet. Your draft stays here until you leave
-          this page.
-        </p>
+        <WorkflowActions job={job} />
       </div>
     </section>
   );

@@ -1,25 +1,19 @@
 # Apply at Ease
 
-A web and desktop job-search assistant designed to help you:
+A web and desktop job-search assistant for English-language remote full-time roles and long-term contracts.
 
-- Find English-language remote full-time roles and long-term contracts matching your CV and preferences.
-- Check eligibility and employer application requirements.
-- Tailor your CV, requested cover letters and screening answers using your career information.
-- Review and approve each application before submission.
-- Track saved jobs, application materials, progress and next steps.
-
-Early development: web and desktop share an opportunity workspace with an agent conversation area, match details and application review panels. Guided onboarding and an editable career profile share local storage. English PDF/DOCX text is extracted on-device. Optional CV analysis sends extracted text through your signed-in local Codex CLI, then shows source-linked career facts, role suggestions and findings for review. Email-code, Google and Apple sign-in follow onboarding when their providers are configured. Tailoring, job discovery, agent chat and application workflows are not connected yet.
+Import your CV, review source-linked career details, set search preferences, discover opportunities and prepare application materials. Assessments keep eligibility, qualifications and unknowns separate. Application filling and submission are unavailable.
 
 ## Run locally
 
-Requires Node.js 26.12.1, pnpm 12.16.1 and Docker.
+Use the runtime version in `.node-version` and the package manager version in `package.json`. A local container runtime is required for the development database.
 
 ```sh
 pnpm install --frozen-lockfile
 cp .env.example .env
 ```
 
-Set a local database password in both `POSTGRES_PASSWORD` and `DATABASE_URL`, and replace `AUTH_SECRET` with at least 32 random characters.
+Set matching local database credentials in `POSTGRES_PASSWORD` and `DATABASE_URL`. Set `AUTH_SECRET` to at least 32 random characters.
 
 ```sh
 docker compose up -d --wait
@@ -27,43 +21,51 @@ pnpm db:migrate
 pnpm dev:api
 ```
 
-In another terminal, start either client:
+Start a client in another terminal:
 
 ```sh
 pnpm dev:web
 pnpm dev:desktop
 ```
 
-The web app opens at `http://127.0.0.1:5173`. The desktop command downloads Electron on first use and opens the app. Both clients use the local API at `http://127.0.0.1:4310`.
+The web client uses `http://127.0.0.1:5173` and the API uses `http://127.0.0.1:4310`. `API_PROXY_TARGET` selects a different development API; include the client origin in `APP_ORIGINS`.
 
-## Set up your search
+## Profile and documents
 
-Choose **Set up your search profile** in the workspace, or open **Your profile**. Setup covers your goal, optional CV analysis, editable role tracks, separate current experience and desired levels, work modes, physical work countries and scoped authorization. Remote, hybrid and on-site preferences and full-time, part-time, long-term contract, short-term contract and internship arrangements are captured; this does not establish search support for every arrangement. Each question gets its own screen, with separate illustrated interludes. Searchable role and location answers use selected chips; role levels and other single choices use cards. You can go back, leave questions for later, exit and resume, or edit an individual answer from review. Confirming a profile never approves an application.
+Set up your search profile or edit individual details in **Your profile**. Current experience and desired career directions remain separate. Country-specific authorization requires explicit answers; residence does not establish eligibility.
 
-Compensation preferences stay separate for each employment arrangement: gross employment pay and contract pay before tax and expenses. Currency, pay period, private minimum and target are separate questions. Amounts use a slider and an exact editable field; typed values are retained without rounding or conversion. Large values expand the slider range. Values beyond its finite precision remain editable in the exact field with the slider disabled. Deferring compensation retains drafts but excludes them from the active preferences. Changing currency or period preserves the amounts and requires confirmation in the new units.
+Compensation preferences retain exact amounts, currency, pay period and employment basis. A target cannot be below the private minimum. Changing units preserves draft amounts and requires confirmation. Private search limits are separate from application salary answers.
 
-PDF and DOCX text is extracted locally. Review it against the original; column order and unsupported document features may need correction. Scanned documents need OCR, which is not available. Files are limited to 10 MB and PDFs to 40 pages. Analysis proposals preserve source references and uncertainty; selected aspirations and candidate corrections remain separate from source statements. The original file remains unchanged and can be downloaded from the profile.
+PDF and DOCX text is extracted on-device. Files are limited to 10 MB and PDFs to 40 pages. Scanned documents require unavailable text-recognition capabilities. The original stays unchanged and can be downloaded. Optional analysis sends extracted text to the configured analysis connection after you choose to analyze. Missing access and extraction limitations remain visible.
 
-The profile, source text and original file are stored in IndexedDB for this browser origin or desktop app, without account sync. They are not encrypted by the app. Use **Clear local profile** to remove them; clearing browser/app data also removes them. Storage failures are shown without claiming a successful save. Concurrent edits from another window require reloading the saved version.
+Profiles and original documents are stored locally without encryption or account synchronization. Clearing the profile removes its local copy; it does not remove separate opportunity history or information retained by an analysis provider.
 
-### Optional CV analysis
+## Sign in
 
-Install and sign in to the Codex CLI (qualified with 0.162.1) on the machine running the API (`codex login`, then `codex login status`). The local API must bind to loopback and `APP_ORIGINS` must include the client origin; the example includes `app://app` for desktop. `CODEX_EXECUTABLE` can select the CLI executable and `CODEX_ANALYSIS_MODEL` can select an available model. Account access and usage limits apply; analysis is not bundled with the app.
+Configure supported authentication methods through the API environment. Unavailable methods remain disabled. Serve web `/api` requests through a same-origin proxy, keep authentication secrets on the server and include client origins in `APP_ORIGINS`.
 
-Choose **Analyze my CV** to send the extracted text to the configured provider. The original file remains local. The analysis runs without shell/web access in an ephemeral session; validated findings include exact source quotes and the actual model identity. Source references do not independently verify a claim. Missing access, unsupported sources and failures are shown honestly; manual setup and retry remain available. Source replacement preserves preferences, corrections and prior analysis history. Clearing the local profile does not erase provider-side retention governed by that provider’s policy.
+Desktop sign-in opens the system browser and returns through the registered application callback. Non-local `AUTH_URL` and `APP_WEB_URL` values require HTTPS.
 
-Completing setup leads to sign-in, then your profile. It does not run a job search.
+After sign-in, the completed draft is associated with the selected account on this device. Replacing an existing account profile requires an explicit choice. Signing out hides the local account profile without deleting it.
 
-## Sign-in configuration
+## Discover and review
 
-Configure methods in the API environment; unavailable methods stay disabled:
+Choose target roles, create a search plan and run discovery in **All opportunities**. You can also import a public HTTPS employer posting. Search results remain leads until their sources are inspected. Save or dismiss an opportunity independently of any application.
 
-- **Email code:** `RESEND_API_KEY` and `AUTH_EMAIL_FROM` using a verified sending domain. Codes expire after five minutes and allow five verification attempts; requests are rate limited.
-- **Google:** `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. Register `AUTH_URL/api/auth/callback/google` as a redirect URI.
-- **Apple:** `APPLE_CLIENT_ID` (Services ID) and `APPLE_CLIENT_SECRET` (signed client-secret JWT). Register `AUTH_URL/api/auth/callback/apple` using an HTTPS domain. Renew the client secret before it expires; Apple does not support localhost return URLs.
+Inspect the actual application destination before preparing materials. Inspection reads accessible static HTML and remains partial: conditional pages, login requirements and dynamically rendered fields can hide requirements.
 
-`AUTH_URL` is the API origin. Serve web `/api` requests through a same-origin proxy to the API and include the web origin in `APP_ORIGINS`. Keep provider secrets on the server.
+Preparation evaluates the whole supplied CV and returns exact edit proposals and drafted answers for observed questions. It does not edit or render a replacement document. Consequential declarations remain unanswered until the actual applicant responds. Local review never approves transmission.
 
-Desktop sign-in opens the system browser and returns via `com.applyatease.app`. For a non-local installation, set `AUTH_URL` and `APP_WEB_URL` in the desktop process environment; both require HTTPS outside localhost. Packaged installers register the callback scheme.
+Profile and source changes mark dependent results stale. Regenerating preparation archives earlier user-written answers with their prior context. Archived wording is retained for inspection and is not silently assigned to the new package. Interrupted operations preserve earlier results. After an API restart, refresh source captures and application requirements before another analysis operation.
 
-After sign-in, the completed draft is associated with that account on this device. An existing local account profile requires an explicit choice before replacement. Signing out hides the account’s local profile; it does not erase it or synchronize it to another device. Local profiles remain unencrypted in IndexedDB. Desktop session credentials use the operating system’s encrypted storage when available and remain in memory otherwise.
+Separate local research profiles retain public-source material without applicant confirmations. Public availability does not grant permission to represent a CV owner. Research profiles cannot approve, upload, fill or submit applications.
+
+## Checks
+
+```sh
+pnpm check
+pnpm test:integration
+pnpm test:web
+```
+
+Integration checks require a dedicated test database. Their global setup initializes its schema before the test suites start. Native development and packaged checks use `pnpm test:desktop` and `pnpm test:desktop:packaged`.

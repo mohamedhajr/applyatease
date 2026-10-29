@@ -17,16 +17,16 @@ Read every supplied section. Preserve chronology, employers, official roles, dat
 Evidence quotes must be exact spans from the supplied section; every snapshot sentence, fact, role and finding must reference evidence IDs. Use stable descriptive IDs. Facts are source-stated proposals; snapshot and role suggestions are interpretations, not candidate confirmation. Separate past roles, suggested directions and desired future roles. Suggest at most three useful directions when supported, with direction-specific tentative current experience, reasons and uncertainty. Don't force every CV into a fixed role list. Unknown level is an empty string.
 Return useful strengths and gaps as observations with actions, without numeric ATS scores or hiring probability. Missing evidence is not missing ability. Report all analyzed section labels in coverage and incomplete/ambiguous extraction in limitations. Never reproduce a secret or credential-looking token; report a source redaction limitation instead. No applicant confirmation is authorized by this task.`;
 
-function execute(
+export function execute(
   args: string[],
   cwd?: string,
   input?: string,
   timeout = 180000,
+  signal?: AbortSignal,
 ): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.env.CODEX_EXECUTABLE || "codex", args, {
       cwd,
-      // Do not expose database, mail or app-auth credentials to the model host.
       env: Object.fromEntries(
         [
           "PATH",
@@ -55,6 +55,7 @@ function execute(
       ),
       stdio: ["pipe", "pipe", "pipe"],
       shell: false,
+      signal,
     });
     let stdout = "",
       stderr = "",
@@ -94,7 +95,7 @@ function execute(
     child.on("error", () =>
       finish(
         new Error(
-          "Codex is not available to the local service. Install and sign in to the supported Codex CLI.",
+          "The local analysis connection is unavailable. Configure and authenticate the supported analysis executable.",
         ),
       ),
     );
@@ -113,17 +114,18 @@ function execute(
 }
 export async function analysisCapability() {
   try {
-    const version = await execute(["--version"], undefined, undefined, 5000);
-    const auth = await execute(["login", "status"], undefined, undefined, 5000);
+    await execute(["--version"], undefined, undefined, 5000);
+    await execute(["login", "status"], undefined, undefined, 5000);
     return {
       available: true,
-      message: `${version.stdout.trim()} · ${`${auth.stdout} ${auth.stderr}`.includes("ChatGPT") ? "ChatGPT sign-in" : "Configured Codex authentication"}. Analysis sends extracted CV text to this provider when you choose Analyze.`,
+      message:
+        "Analysis connection ready. Extracted CV text is sent to the configured provider when you choose Analyze.",
     };
   } catch {
     return {
       available: false,
       message:
-        "CV analysis needs the local service with Codex installed and signed in. You can continue manually.",
+        "CV analysis needs an authenticated local analysis connection. You can continue manually.",
     };
   }
 }
@@ -202,6 +204,7 @@ export async function analyzeWithCodex(
       ],
       directory,
       `${instructions}\n\nSOURCE JSON:\n${JSON.stringify(source)}`,
+      360000,
     );
     const content = validateAnalysis(
       Schema.decodeUnknownSync(AnalysisContent)(JSON.parse(result.stdout)),
